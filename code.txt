@@ -1,0 +1,1640 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Reflection;
+using System.Text;
+using BepInEx;
+using BepInEx.Logging;
+using GorillaNetworking;
+using Photon.Pun;
+using Photon.Realtime;
+using UnityEngine;
+using UnityEngine.InputSystem;
+
+namespace Defaced
+{
+	// Token: 0x02000002 RID: 2
+	[BepInPlugin("com.defaced.gui", "Defaced GUI", "8.0.0")]
+	public class Plugin : BaseUnityPlugin
+	{
+		// Token: 0x06000001 RID: 1 RVA: 0x00002050 File Offset: 0x00000250
+		private void Awake()
+		{
+			this.toggleAction = new InputAction("ToggleGUI", 0, "<Keyboard>/tab", null, null, null);
+			this.toggleAction.performed += delegate(InputAction.CallbackContext ctx)
+			{
+				this.showMain = !this.showMain;
+			};
+			this.toggleAction.Enable();
+			this.CreateTextures();
+			this.LoadLogo(ref this.questLogo, "quest.png");
+			this.LoadLogo(ref this.steamLogo, "steam.png");
+			bool flag = this.steamLogo != null;
+			if (flag)
+			{
+				this.steamSprite = Sprite.Create(this.steamLogo, new Rect(0f, 0f, (float)this.steamLogo.width, (float)this.steamLogo.height), new Vector2(0.5f, 0.5f));
+			}
+			bool flag2 = this.questLogo != null;
+			if (flag2)
+			{
+				this.questSprite = Sprite.Create(this.questLogo, new Rect(0f, 0f, (float)this.questLogo.width, (float)this.questLogo.height), new Vector2(0.5f, 0.5f));
+			}
+			this.DisableOtherAudioListeners();
+		}
+
+		// Token: 0x06000002 RID: 2 RVA: 0x0000217C File Offset: 0x0000037C
+		private void OnDestroy()
+		{
+			InputAction inputAction = this.toggleAction;
+			if (inputAction != null)
+			{
+				inputAction.Dispose();
+			}
+			this.DestroyTextures();
+			foreach (GameObject gameObject in this.nametagObjects.Values)
+			{
+				bool flag = gameObject;
+				if (flag)
+				{
+					Object.Destroy(gameObject);
+				}
+			}
+			this.nametagObjects.Clear();
+			foreach (GameObject gameObject2 in this.platformTagObjects.Values)
+			{
+				bool flag2 = gameObject2;
+				if (flag2)
+				{
+					Object.Destroy(gameObject2);
+				}
+			}
+			this.platformTagObjects.Clear();
+			Camera main = Camera.main;
+			bool flag3 = main != null;
+			if (flag3)
+			{
+				AudioListener component = main.GetComponent<AudioListener>();
+				bool flag4 = component != null;
+				if (flag4)
+				{
+					component.enabled = true;
+				}
+			}
+		}
+
+		// Token: 0x06000003 RID: 3 RVA: 0x000022A0 File Offset: 0x000004A0
+		private void LoadLogo(ref Texture2D tex, string file)
+		{
+			string path = Path.Combine(Paths.PluginPath, file);
+			bool flag = File.Exists(path);
+			if (flag)
+			{
+				tex = new Texture2D(2, 2);
+				bool flag2 = !ImageConversion.LoadImage(tex, File.ReadAllBytes(path));
+				if (flag2)
+				{
+					base.Logger.LogError("Failed to load " + file + " image.");
+				}
+			}
+		}
+
+		// Token: 0x06000004 RID: 4 RVA: 0x00002300 File Offset: 0x00000500
+		private static string GetPlatform(VRRig rig)
+		{
+			string concatStringOfCosmeticsAllowed = rig.concatStringOfCosmeticsAllowed;
+			bool flag = concatStringOfCosmeticsAllowed.Contains("S. FIRST LOGIN") || concatStringOfCosmeticsAllowed.Contains("FIRST LOGIN") || rig.Creator.GetPlayerRef().CustomProperties.Count >= 2;
+			string result;
+			if (flag)
+			{
+				result = "STEAM";
+			}
+			else
+			{
+				result = "OCULUS";
+			}
+			return result;
+		}
+
+		// Token: 0x06000005 RID: 5 RVA: 0x00002364 File Offset: 0x00000564
+		private void CreateTextures()
+		{
+			this.headerTex = this.MakeTex(1, 1, this.guiBgColor);
+			this.gradientTex = new Texture2D(1, 256);
+			for (int i = 0; i < 256; i++)
+			{
+				this.gradientTex.SetPixel(0, i, Color.Lerp(this.guiBgColor, new Color(0.09f, 0.1f, 0.13f, 1f), (float)i / 255f));
+			}
+			this.gradientTex.Apply();
+			this.sliderBG = this.MakeTex(1, 16, new Color(0.1f, 0.1f, 0.1f, 1f));
+			this.sliderFG = this.MakeTex(1, 16, this.guiAccentColor);
+			this.roundedTex = this.MakeRoundedTex(32, 32, this.guiBgColor, 10);
+		}
+
+		// Token: 0x06000006 RID: 6 RVA: 0x00002448 File Offset: 0x00000648
+		private Color GetRainbowColor(float speed = 1f, float offset = 0f)
+		{
+			float num = (Time.realtimeSinceStartup * speed + offset) % 1f;
+			return Color.HSVToRGB(num, 0.8f, 1f);
+		}
+
+		// Token: 0x06000007 RID: 7 RVA: 0x0000247C File Offset: 0x0000067C
+		private void DestroyTextures()
+		{
+			foreach (Texture2D texture2D in new Texture2D[]
+			{
+				this.borderTex,
+				this.gradientTex,
+				this.sliderBG,
+				this.sliderFG,
+				this.headerTex,
+				this.roundedTex
+			})
+			{
+				bool flag = texture2D;
+				if (flag)
+				{
+					Object.Destroy(texture2D);
+				}
+			}
+		}
+
+		// Token: 0x06000008 RID: 8 RVA: 0x000024EC File Offset: 0x000006EC
+		public void Start()
+		{
+			for (int i = 1; i < BetterDayNightManager.instance.weatherCycle.Length; i++)
+			{
+				BetterDayNightManager.instance.weatherCycle[i] = 0;
+			}
+			Plugin.Variables.Designer = Plugin.Variables.Create("PrivateCasting.Fonts.Designer.otf");
+			Plugin.Variables.Default = Plugin.Variables.Arial;
+		}
+
+		// Token: 0x06000009 RID: 9 RVA: 0x00002540 File Offset: 0x00000740
+		public void Init()
+		{
+			Plugin.Variables.cam = new GameObject("PrivateCamera").AddComponent<Camera>();
+			GameObject gameObject = GameObject.Find("Shoulder Camera");
+			if (gameObject != null)
+			{
+				gameObject.SetActive(false);
+			}
+			Plugin.Variables.cam.cameraType = 1;
+			Plugin.Variables.cam.depth = 2f;
+			this.camListener = Plugin.Variables.cam.gameObject.GetComponent<AudioListener>();
+			bool flag = this.camListener == null;
+			if (flag)
+			{
+				this.camListener = Plugin.Variables.cam.gameObject.AddComponent<AudioListener>();
+			}
+			this.DisableOtherAudioListeners();
+		}
+
+		// Token: 0x0600000A RID: 10 RVA: 0x000025D8 File Offset: 0x000007D8
+		private void DisableOtherAudioListeners()
+		{
+			foreach (AudioListener audioListener in Object.FindObjectsOfType<AudioListener>())
+			{
+				bool flag = this.camListener == null || audioListener != this.camListener;
+				if (flag)
+				{
+					audioListener.enabled = false;
+				}
+			}
+		}
+
+		// Token: 0x0600000B RID: 11 RVA: 0x0000262A File Offset: 0x0000082A
+		private void LateUpdate()
+		{
+			this.HandleCameraControls();
+			this.UpdateNametags();
+			this.UpdateRigLerping();
+			this.HandlePlayerSwitchKeys();
+		}
+
+		// Token: 0x0600000C RID: 12 RVA: 0x0000264C File Offset: 0x0000084C
+		private void HandleCameraControls()
+		{
+			bool isPressed = Keyboard.current.upArrowKey.isPressed;
+			if (isPressed)
+			{
+				Plugin.Variables.YOffset += 0.02f;
+			}
+			bool isPressed2 = Keyboard.current.downArrowKey.isPressed;
+			if (isPressed2)
+			{
+				Plugin.Variables.YOffset -= 0.02f;
+			}
+			PhotonNetworkController.Instance.disableAFKKick = true;
+			bool flag = Plugin.Variables.cam == null && Plugin.Variables.loaded;
+			if (flag)
+			{
+				this.Init();
+			}
+			Plugin.Variables.rigs = GorillaParent.instance.vrrigs.ToArray();
+			this.UpdateCameraPosition();
+		}
+
+		// Token: 0x0600000D RID: 13 RVA: 0x000026EC File Offset: 0x000008EC
+		private void UpdateCameraPosition()
+		{
+			VRRig vrrig = this.pinnedPlayer ?? Plugin.Variables.target;
+			bool flag = Plugin.Variables.cam == null;
+			if (!flag)
+			{
+				Vector3 vector = Camera.main.transform.position - Camera.main.transform.forward * (Plugin.Variables.headDist * 3f);
+				Quaternion quaternion = Camera.main.transform.rotation;
+				bool flag2 = vrrig != null && vrrig != GorillaTagger.Instance.offlineVRRig;
+				if (flag2)
+				{
+					Transform transform = vrrig.bodyTransform.transform;
+					Vector3 vector2 = vrrig.bodyTransform.transform.forward;
+					Vector3 up = Vector3.up;
+					bool flag3 = Plugin.Variables.followMode == Plugin.Variables.CameraFollowMode.Head && vrrig.headMesh != null;
+					if (flag3)
+					{
+						transform = vrrig.headMesh.transform;
+						Plugin.Variables.looker = "Head";
+						vector2 = transform.forward;
+						up = transform.up;
+					}
+					else
+					{
+						Plugin.Variables.looker = "Body";
+						vector2.y = 0f;
+						vector2 = ((vector2.sqrMagnitude > 0.001f) ? vector2.normalized : Vector3.forward);
+					}
+					vector = transform.position - vector2 * (Plugin.Variables.headDist * 3f);
+					quaternion = Quaternion.LookRotation(vector2, up);
+					vector += transform.up * Plugin.Variables.YOffset;
+					bool flag4 = Plugin.Variables.headDist == 0f;
+					if (flag4)
+					{
+						vector = transform.position + transform.up * Plugin.Variables.YOffset + vector2 * 0.15f;
+						quaternion = Quaternion.LookRotation(vector2, up);
+					}
+				}
+				else
+				{
+					vector += Vector3.up * Plugin.Variables.YOffset;
+				}
+				Plugin.Variables.cam.nearClipPlane = Plugin.Variables.nearClip;
+				Plugin.Variables.cam.fieldOfView = Plugin.Variables.fov;
+				float num = Plugin.Variables.smoothFollow ? (1f - Plugin.Variables.moveSmoothing) : (1f - Plugin.Variables.moveSmoothing);
+				float num2 = Plugin.Variables.smoothFollow ? (1f - Plugin.Variables.rotSmoothing) : (1f - Plugin.Variables.rotSmoothing);
+				bool flag5 = num < 0.01f;
+				if (flag5)
+				{
+					num = 0.01f;
+				}
+				bool flag6 = num2 < 0.01f;
+				if (flag6)
+				{
+					num2 = 0.01f;
+				}
+				Plugin.Variables.cam.transform.position = Vector3.Lerp(Plugin.Variables.cam.transform.position, vector, num);
+				Plugin.Variables.cam.transform.rotation = Quaternion.Slerp(Plugin.Variables.cam.transform.rotation, quaternion, num2);
+			}
+		}
+
+		// Token: 0x0600000E RID: 14 RVA: 0x000029B4 File Offset: 0x00000BB4
+		private void DrawMainWindow()
+		{
+			float num = 340f;
+			float num2 = 420f;
+			float num3 = ((float)Screen.width - num) / 2f;
+			float num4 = ((float)Screen.height - num2) / 2f;
+			Rect rect;
+			rect..ctor(num3, num4, num, num2);
+			GUILayout.BeginArea(rect, this.MinimalBoxStyle());
+			GUILayout.Label("\ud83e\udd8d DEFACED GUI", this.MinimalHeaderStyle(), Array.Empty<GUILayoutOption>());
+			GUILayout.Space(10f);
+			bool flag = GUILayout.Button(this.showCamera ? "Camera [OPEN]" : "Camera", this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
+			if (flag)
+			{
+				this.showCamera = !this.showCamera;
+			}
+			bool flag2 = GUILayout.Button(this.showMap ? "Map [OPEN]" : "Map", this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
+			if (flag2)
+			{
+				this.showMap = !this.showMap;
+			}
+			bool flag3 = GUILayout.Button(this.showNametags ? "Nametags [OPEN]" : "Nametags", this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
+			if (flag3)
+			{
+				this.showNametags = !this.showNametags;
+			}
+			bool flag4 = GUILayout.Button(this.showMisc ? "Misc [OPEN]" : "Misc", this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
+			if (flag4)
+			{
+				this.showMisc = !this.showMisc;
+			}
+			bool flag5 = GUILayout.Button(this.showTime ? "Time & Weather [OPEN]" : "Time & Weather", this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
+			if (flag5)
+			{
+				this.showTime = !this.showTime;
+			}
+			bool flag6 = GUILayout.Button(this.showCustomize ? "Customize [OPEN]" : "Customize", this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
+			if (flag6)
+			{
+				this.showCustomize = !this.showCustomize;
+			}
+			GUILayout.Space(20f);
+			GUILayout.Label("Press Tab to toggle this menu.", this.MinimalLabelStyle(false), Array.Empty<GUILayoutOption>());
+			GUILayout.EndArea();
+		}
+
+		// Token: 0x0600000F RID: 15 RVA: 0x00002BA4 File Offset: 0x00000DA4
+		private void DrawCameraWindow()
+		{
+			float num = 400f;
+			float num2 = 420f;
+			float num3 = 24f;
+			float num4 = 24f;
+			Rect rect;
+			rect..ctor(num3, num4, num, num2);
+			GUILayout.BeginArea(rect, this.MinimalBoxStyle());
+			GUILayout.BeginHorizontal(Array.Empty<GUILayoutOption>());
+			GUILayout.Label("Camera", this.MinimalHeaderStyle(), Array.Empty<GUILayoutOption>());
+			GUILayout.FlexibleSpace();
+			bool flag = GUILayout.Button("✕", this.MinimalButtonStyle(), new GUILayoutOption[]
+			{
+				GUILayout.Width(32f),
+				GUILayout.Height(32f)
+			});
+			if (flag)
+			{
+				this.showCamera = false;
+			}
+			GUILayout.EndHorizontal();
+			this.cameraScroll = GUILayout.BeginScrollView(this.cameraScroll, false, false, GUIStyle.none, GUI.skin.verticalScrollbar, new GUILayoutOption[]
+			{
+				GUILayout.ExpandHeight(true)
+			});
+			this.DrawSliderControl("Near Clip", ref Plugin.Variables.nearClip, 0.01f, 0.99f);
+			this.DrawSliderControl("Move Smoothing", ref Plugin.Variables.moveSmoothing, 0f, 0.99f);
+			this.DrawSliderControl("Rot Smoothing", ref Plugin.Variables.rotSmoothing, 0f, 0.99f);
+			this.DrawSliderControl("Distance", ref Plugin.Variables.headDist, 0f, 0.99f);
+			this.DrawSliderControl("FOV", ref Plugin.Variables.fov, 10f, 120f);
+			this.DrawSliderControl("Rig Lerp", ref Plugin.Variables.lerping, 0.1f, 5f);
+			this.DrawSliderControl("Y Offset", ref Plugin.Variables.YOffset, -2f, 2f);
+			GUILayout.Label("Follow:", this.MinimalLabelStyle(false), Array.Empty<GUILayoutOption>());
+			GUILayout.BeginHorizontal(Array.Empty<GUILayoutOption>());
+			bool flag2 = GUILayout.Toggle(Plugin.Variables.followMode == Plugin.Variables.CameraFollowMode.Body, "Body", this.MinimalToggleStyle(), Array.Empty<GUILayoutOption>());
+			if (flag2)
+			{
+				Plugin.Variables.followMode = Plugin.Variables.CameraFollowMode.Body;
+			}
+			bool flag3 = GUILayout.Toggle(Plugin.Variables.followMode == Plugin.Variables.CameraFollowMode.Head, "Head", this.MinimalToggleStyle(), Array.Empty<GUILayoutOption>());
+			if (flag3)
+			{
+				Plugin.Variables.followMode = Plugin.Variables.CameraFollowMode.Head;
+			}
+			GUILayout.EndHorizontal();
+			Plugin.Variables.smoothFollow = GUILayout.Toggle(Plugin.Variables.smoothFollow, "Smooth Follow", this.MinimalToggleStyle(), Array.Empty<GUILayoutOption>());
+			bool flag4 = GUILayout.Button("Init Camera", this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
+			if (flag4)
+			{
+				this.Init();
+			}
+			bool flag5 = GUILayout.Button("Reset", this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
+			if (flag5)
+			{
+				Plugin.Variables.fov = 90f;
+				Plugin.Variables.nearClip = 0.01f;
+				Plugin.Variables.moveSmoothing = 0f;
+				Plugin.Variables.rotSmoothing = 0f;
+				Plugin.Variables.headDist = 0f;
+				Plugin.Variables.lerping = 0.2f;
+				Plugin.Variables.YOffset = 0f;
+				Plugin.Variables.bodyOnlyTracking = false;
+				Plugin.Variables.followMode = Plugin.Variables.CameraFollowMode.Body;
+				Plugin.Variables.smoothFollow = true;
+			}
+			GUILayout.EndScrollView();
+			GUILayout.EndArea();
+		}
+
+		// Token: 0x06000010 RID: 16 RVA: 0x00002E7C File Offset: 0x0000107C
+		private void DrawMapWindow()
+		{
+			float num = 320f;
+			float num2 = 320f;
+			float num3 = (float)Screen.width - num - 24f;
+			float num4 = 24f;
+			Rect rect;
+			rect..ctor(num3, num4, num, num2);
+			GUILayout.BeginArea(rect, this.MinimalBoxStyle());
+			GUILayout.BeginHorizontal(Array.Empty<GUILayoutOption>());
+			GUILayout.Label("Map Loader", this.MinimalHeaderStyle(), Array.Empty<GUILayoutOption>());
+			GUILayout.FlexibleSpace();
+			bool flag = GUILayout.Button("✕", this.MinimalButtonStyle(), new GUILayoutOption[]
+			{
+				GUILayout.Width(32f),
+				GUILayout.Height(32f)
+			});
+			if (flag)
+			{
+				this.showMap = false;
+			}
+			GUILayout.EndHorizontal();
+			this.mapScroll = GUILayout.BeginScrollView(this.mapScroll, false, false, GUIStyle.none, GUI.skin.verticalScrollbar, new GUILayoutOption[]
+			{
+				GUILayout.ExpandHeight(true)
+			});
+			foreach (object obj in Enum.GetValues(typeof(GTZone)))
+			{
+				GTZone gtzone = (GTZone)obj;
+				bool flag2 = GUILayout.Button(string.Format("{0}", gtzone), this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
+				if (flag2)
+				{
+					ZoneManagement.SetActiveZone(gtzone);
+				}
+			}
+			GUILayout.EndScrollView();
+			GUILayout.EndArea();
+		}
+
+		// Token: 0x06000011 RID: 17 RVA: 0x00002FF4 File Offset: 0x000011F4
+		private void DrawNametagsWindow()
+		{
+			float num = 400f;
+			float num2 = 420f;
+			float num3 = 24f;
+			float num4 = (float)Screen.height - num2 - 24f;
+			Rect rect;
+			rect..ctor(num3, num4, num, num2);
+			GUILayout.BeginArea(rect, this.MinimalBoxStyle());
+			GUILayout.BeginHorizontal(Array.Empty<GUILayoutOption>());
+			GUILayout.Label("Nametags", this.MinimalHeaderStyle(), Array.Empty<GUILayoutOption>());
+			GUILayout.FlexibleSpace();
+			bool flag = GUILayout.Button("✕", this.MinimalButtonStyle(), new GUILayoutOption[]
+			{
+				GUILayout.Width(32f),
+				GUILayout.Height(32f)
+			});
+			if (flag)
+			{
+				this.showNametags = false;
+			}
+			GUILayout.EndHorizontal();
+			this.nametagScroll = GUILayout.BeginScrollView(this.nametagScroll, false, false, GUIStyle.none, GUI.skin.verticalScrollbar, new GUILayoutOption[]
+			{
+				GUILayout.ExpandHeight(true)
+			});
+			GUILayout.BeginHorizontal(Array.Empty<GUILayoutOption>());
+			bool flag2 = GUILayout.Toggle(Plugin.Variables.nametags, "Velocity", this.MinimalToggleStyle(), Array.Empty<GUILayoutOption>());
+			if (flag2)
+			{
+				Plugin.Variables.nametags = true;
+			}
+			bool flag3 = GUILayout.Toggle(!Plugin.Variables.nametags, "Color", this.MinimalToggleStyle(), Array.Empty<GUILayoutOption>());
+			if (flag3)
+			{
+				Plugin.Variables.nametags = false;
+			}
+			GUILayout.EndHorizontal();
+			Plugin.Variables.showFPS = GUILayout.Toggle(Plugin.Variables.showFPS, "FPS", this.MinimalToggleStyle(), Array.Empty<GUILayoutOption>());
+			Plugin.Variables.showPlatformIcon = GUILayout.Toggle(Plugin.Variables.showPlatformIcon, "Platform", this.MinimalToggleStyle(), Array.Empty<GUILayoutOption>());
+			GUILayout.Label("Font:", this.MinimalLabelStyle(false), Array.Empty<GUILayoutOption>());
+			GUILayout.BeginHorizontal(Array.Empty<GUILayoutOption>());
+			bool flag4 = GUILayout.Toggle(Plugin.Variables.Default == Plugin.Variables.Arial, "Default", this.MinimalToggleStyle(), Array.Empty<GUILayoutOption>());
+			if (flag4)
+			{
+				Plugin.Variables.Default = Plugin.Variables.Arial;
+			}
+			bool flag5 = GUILayout.Toggle(Plugin.Variables.Default == Plugin.Variables.Designer, "Designer", this.MinimalToggleStyle(), Array.Empty<GUILayoutOption>());
+			if (flag5)
+			{
+				Plugin.Variables.Default = Plugin.Variables.Designer;
+			}
+			GUILayout.EndHorizontal();
+			GUILayout.Label("Size:", this.MinimalLabelStyle(false), Array.Empty<GUILayoutOption>());
+			this.DrawSliderControl("Size", ref Plugin.Variables.size, 0.5f, 3f);
+			this.DrawSliderControl("Nametag Y", ref Plugin.Variables.nametagYOffset, -2f, 2f);
+			this.DrawSliderControl("Nametag X", ref Plugin.Variables.nametagXOffset, -2f, 2f);
+			this.DrawSliderControl("Platform Y", ref Plugin.Variables.platformYOffset, -2f, 2f);
+			this.DrawSliderControl("Platform X", ref Plugin.Variables.platformXOffset, -2f, 2f);
+			Plugin.Variables.tags = GUILayout.Toggle(Plugin.Variables.tags, "Enable", this.MinimalToggleStyle(), Array.Empty<GUILayoutOption>());
+			GUILayout.EndScrollView();
+			GUILayout.EndArea();
+		}
+
+		// Token: 0x06000012 RID: 18 RVA: 0x000032D0 File Offset: 0x000014D0
+		private void DrawMiscWindow()
+		{
+			float num = 400f;
+			float num2 = 420f;
+			float num3 = (float)Screen.width - num - 24f;
+			float num4 = (float)Screen.height - num2 - 24f;
+			Rect rect;
+			rect..ctor(num3, num4, num, num2);
+			GUILayout.BeginArea(rect, this.MinimalBoxStyle());
+			GUILayout.BeginHorizontal(Array.Empty<GUILayoutOption>());
+			GUILayout.Label("Misc", this.MinimalHeaderStyle(), Array.Empty<GUILayoutOption>());
+			GUILayout.FlexibleSpace();
+			bool flag = GUILayout.Button("✕", this.MinimalButtonStyle(), new GUILayoutOption[]
+			{
+				GUILayout.Width(32f),
+				GUILayout.Height(32f)
+			});
+			if (flag)
+			{
+				this.showMisc = false;
+			}
+			GUILayout.EndHorizontal();
+			this.miscScroll = GUILayout.BeginScrollView(this.miscScroll, false, false, GUIStyle.none, GUI.skin.verticalScrollbar, new GUILayoutOption[]
+			{
+				GUILayout.ExpandHeight(true)
+			});
+			bool flag2 = !PhotonNetwork.InRoom;
+			if (flag2)
+			{
+				Plugin.Variables.Online = false;
+			}
+			bool inRoom = PhotonNetwork.InRoom;
+			if (inRoom)
+			{
+				Plugin.Variables.Online = true;
+			}
+			bool flag3 = Plugin.Variables.Online && Plugin.Variables.target != null && Plugin.Variables.target.mainSkin != null && Plugin.Variables.target.mainSkin.material != null && Plugin.Variables.target.OwningNetPlayer != null;
+			if (flag3)
+			{
+				string str = "Room: ";
+				Room currentRoom = PhotonNetwork.CurrentRoom;
+				GUILayout.Label(str + (((currentRoom != null) ? currentRoom.Name : null) ?? "Unknown"), this.MinimalLabelStyle(false), Array.Empty<GUILayoutOption>());
+				GUILayout.Label("Player ID: " + Plugin.Variables.target.OwningNetPlayer.UserId, this.MinimalLabelStyle(false), Array.Empty<GUILayoutOption>());
+				GUILayout.Label(string.Format("Ping: {0}ms", PhotonNetwork.GetPing()), this.MinimalLabelStyle(false), Array.Empty<GUILayoutOption>());
+			}
+			else
+			{
+				bool online = Plugin.Variables.Online;
+				if (online)
+				{
+					GUILayout.Label("No player selected.", this.MinimalLabelStyle(false), Array.Empty<GUILayoutOption>());
+				}
+				else
+				{
+					GUILayout.Label("Not in a room", this.MinimalLabelStyle(false), Array.Empty<GUILayoutOption>());
+				}
+			}
+			Plugin.Variables.Code = GUILayout.TextField(Plugin.Variables.Code ?? "", 15, this.MinimalTextFieldStyle(), Array.Empty<GUILayoutOption>());
+			bool flag4 = GUILayout.Button("Join Room", this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
+			if (flag4)
+			{
+				PhotonNetworkController.Instance.AttemptToJoinSpecificRoom((Plugin.Variables.Code ?? "").ToUpper(), 0);
+			}
+			bool flag5 = GUILayout.Button(Plugin.Variables.fpsunlock ? "FPS Unlock: ON" : "FPS Unlock: OFF", this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
+			if (flag5)
+			{
+				Plugin.Variables.fpsunlock = !Plugin.Variables.fpsunlock;
+				Application.targetFrameRate = (Plugin.Variables.fpsunlock ? 999 : 144);
+			}
+			GUILayout.Space(10f);
+			GUILayout.Label("Custom Config:", this.MinimalHeaderStyle(), Array.Empty<GUILayoutOption>());
+			GUILayout.BeginHorizontal(Array.Empty<GUILayoutOption>());
+			bool flag6 = GUILayout.Button("Save Config", this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
+			if (flag6)
+			{
+				this.SaveConfig();
+			}
+			bool flag7 = GUILayout.Button("Load Config", this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
+			if (flag7)
+			{
+				this.LoadConfig();
+			}
+			GUILayout.EndHorizontal();
+			GUILayout.EndScrollView();
+			GUILayout.EndArea();
+		}
+
+		// Token: 0x06000013 RID: 19 RVA: 0x00003634 File Offset: 0x00001834
+		private void DrawTimeWindow()
+		{
+			float num = 320f;
+			float num2 = 220f;
+			float num3 = ((float)Screen.width - num) / 2f;
+			float num4 = 24f;
+			Rect rect;
+			rect..ctor(num3, num4, num, num2);
+			GUILayout.BeginArea(rect, this.MinimalBoxStyle());
+			GUILayout.BeginHorizontal(Array.Empty<GUILayoutOption>());
+			GUILayout.Label("Time & Weather", this.MinimalHeaderStyle(), Array.Empty<GUILayoutOption>());
+			GUILayout.FlexibleSpace();
+			bool flag = GUILayout.Button("✕", this.MinimalButtonStyle(), new GUILayoutOption[]
+			{
+				GUILayout.Width(32f),
+				GUILayout.Height(32f)
+			});
+			if (flag)
+			{
+				this.showTime = false;
+			}
+			GUILayout.EndHorizontal();
+			this.timeScroll = GUILayout.BeginScrollView(this.timeScroll, false, false, GUIStyle.none, GUI.skin.verticalScrollbar, new GUILayoutOption[]
+			{
+				GUILayout.ExpandHeight(true)
+			});
+			GUILayout.BeginHorizontal(Array.Empty<GUILayoutOption>());
+			bool flag2 = GUILayout.Button("Morning", this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
+			if (flag2)
+			{
+				BetterDayNightManager.instance.SetTimeOfDay(1);
+			}
+			bool flag3 = GUILayout.Button("10AM", this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
+			if (flag3)
+			{
+				BetterDayNightManager.instance.SetTimeOfDay(3);
+			}
+			bool flag4 = GUILayout.Button("Noon", this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
+			if (flag4)
+			{
+				BetterDayNightManager.instance.SetTimeOfDay(4);
+			}
+			GUILayout.EndHorizontal();
+			GUILayout.BeginHorizontal(Array.Empty<GUILayoutOption>());
+			bool flag5 = GUILayout.Button("Evening", this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
+			if (flag5)
+			{
+				BetterDayNightManager.instance.SetTimeOfDay(6);
+			}
+			bool flag6 = GUILayout.Button("Night", this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
+			if (flag6)
+			{
+				BetterDayNightManager.instance.SetTimeOfDay(0);
+			}
+			GUILayout.EndHorizontal();
+			bool flag7 = GUILayout.Button(Plugin.Variables.raintoggle ? "Rain: ON" : "Rain: OFF", this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
+			if (flag7)
+			{
+				Plugin.Variables.raintoggle = !Plugin.Variables.raintoggle;
+				for (int i = 1; i < BetterDayNightManager.instance.weatherCycle.Length; i++)
+				{
+					BetterDayNightManager.instance.weatherCycle[i] = (Plugin.Variables.raintoggle ? 1 : 0);
+				}
+			}
+			GUILayout.EndScrollView();
+			GUILayout.EndArea();
+		}
+
+		// Token: 0x06000014 RID: 20 RVA: 0x00003888 File Offset: 0x00001A88
+		private void DrawCustomizeWindow()
+		{
+			float num = 400f;
+			float num2 = 420f;
+			float num3 = ((float)Screen.width - num) / 2f;
+			float num4 = 24f;
+			Rect rect;
+			rect..ctor(num3, num4, num, num2);
+			GUILayout.BeginArea(rect, this.MinimalBoxStyle());
+			GUILayout.BeginHorizontal(Array.Empty<GUILayoutOption>());
+			GUILayout.Label("Customize GUI", this.MinimalHeaderStyle(), Array.Empty<GUILayoutOption>());
+			GUILayout.FlexibleSpace();
+			bool flag = GUILayout.Button("✕", this.MinimalButtonStyle(), new GUILayoutOption[]
+			{
+				GUILayout.Width(32f),
+				GUILayout.Height(32f)
+			});
+			if (flag)
+			{
+				this.showCustomize = false;
+			}
+			GUILayout.EndHorizontal();
+			this.customizeScroll = GUILayout.BeginScrollView(this.customizeScroll, false, false, GUIStyle.none, GUI.skin.verticalScrollbar, new GUILayoutOption[]
+			{
+				GUILayout.ExpandHeight(true)
+			});
+			GUILayout.Label("Accent Color", this.MinimalLabelStyle(false), Array.Empty<GUILayoutOption>());
+			this.guiAccentColor = this.EditorColorField(this.guiAccentColor);
+			GUILayout.Label("Background Color", this.MinimalLabelStyle(false), Array.Empty<GUILayoutOption>());
+			this.guiBgColor = this.EditorColorField(this.guiBgColor);
+			GUILayout.Label("Font Size", this.MinimalLabelStyle(false), Array.Empty<GUILayoutOption>());
+			this.guiFontSize = (int)GUILayout.HorizontalSlider((float)this.guiFontSize, 10f, 24f, this.SliderStyle(), this.SliderThumbStyle(), Array.Empty<GUILayoutOption>());
+			GUILayout.Label(this.guiFontSize.ToString(), this.MinimalLabelStyle(false), Array.Empty<GUILayoutOption>());
+			this.useRainbowHeader = GUILayout.Toggle(this.useRainbowHeader, "Rainbow Header", this.MinimalToggleStyle(), Array.Empty<GUILayoutOption>());
+			bool flag2 = GUILayout.Button("Apply", this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
+			if (flag2)
+			{
+				this.CreateTextures();
+			}
+			GUILayout.Space(10f);
+			GUILayout.Label("Tip: Use the sliders and color pickers to make the GUI your own!", this.MinimalLabelStyle(false), Array.Empty<GUILayoutOption>());
+			GUILayout.EndScrollView();
+			GUILayout.EndArea();
+		}
+
+		// Token: 0x06000015 RID: 21 RVA: 0x00003A94 File Offset: 0x00001C94
+		private void OnGUI()
+		{
+			bool flag = this.showMain;
+			if (flag)
+			{
+				this.DrawMainWindow();
+			}
+			bool flag2 = this.showCamera;
+			if (flag2)
+			{
+				this.DrawCameraWindow();
+			}
+			bool flag3 = this.showMap;
+			if (flag3)
+			{
+				this.DrawMapWindow();
+			}
+			bool flag4 = this.showNametags;
+			if (flag4)
+			{
+				this.DrawNametagsWindow();
+			}
+			bool flag5 = this.showMisc;
+			if (flag5)
+			{
+				this.DrawMiscWindow();
+			}
+			bool flag6 = this.showTime;
+			if (flag6)
+			{
+				this.DrawTimeWindow();
+			}
+			bool flag7 = this.showCustomize;
+			if (flag7)
+			{
+				this.DrawCustomizeWindow();
+			}
+		}
+
+		// Token: 0x06000016 RID: 22 RVA: 0x00003B20 File Offset: 0x00001D20
+		private void UpdateRigLerping()
+		{
+			bool flag = Plugin.Variables.lerp2 != Plugin.Variables.lerping;
+			if (flag)
+			{
+				foreach (VRRig vrrig in Plugin.Variables.rigs)
+				{
+					bool flag2 = vrrig != GorillaTagger.Instance.offlineVRRig;
+					if (flag2)
+					{
+						vrrig.lerpValueBody = GorillaTagger.Instance.offlineVRRig.lerpValueBody * Plugin.Variables.lerping;
+						vrrig.lerpValueFingers = GorillaTagger.Instance.offlineVRRig.lerpValueFingers * Plugin.Variables.lerping;
+					}
+				}
+				Plugin.Variables.lerp2 = Plugin.Variables.lerping;
+			}
+		}
+
+		// Token: 0x06000017 RID: 23 RVA: 0x00003BB4 File Offset: 0x00001DB4
+		private void UpdateNametags()
+		{
+			bool flag = !Plugin.Variables.tags;
+			if (flag)
+			{
+				Plugin.Variables.tagwindow = false;
+				foreach (GameObject gameObject in this.nametagObjects.Values)
+				{
+					bool flag2 = gameObject;
+					if (flag2)
+					{
+						Object.Destroy(gameObject);
+					}
+				}
+				this.nametagObjects.Clear();
+				foreach (GameObject gameObject2 in this.platformTagObjects.Values)
+				{
+					bool flag3 = gameObject2;
+					if (flag3)
+					{
+						Object.Destroy(gameObject2);
+					}
+				}
+				this.platformTagObjects.Clear();
+			}
+			else
+			{
+				Plugin.Variables.tagwindow = true;
+				foreach (VRRig vrrig in GorillaParent.instance.vrrigs)
+				{
+					bool flag4 = vrrig == null || vrrig.isOfflineVRRig;
+					if (!flag4)
+					{
+						Color color = vrrig.mainSkin.material.name.Contains("gorilla_body(Clone) (Instance)") ? vrrig.mainSkin.material.color : new Color(1f, 0.1f, 0f);
+						double num = Math.Round((double)vrrig.LatestVelocity().magnitude, 1);
+						string text = Plugin.Variables.nametags ? string.Format("<color=#00FFF7><b>{0}</b></color>\n<size=80%><color=#FFD700>{1} m/s</color></size>", vrrig.playerNameVisible, num) : string.Format("<color=#00FFF7><b>{0}</b></color>\n<size=80%><color=#{1}>{2:F2},{3:F2},{4:F2}</color></size>", new object[]
+						{
+							vrrig.playerNameVisible,
+							ColorUtility.ToHtmlStringRGB(color),
+							color.r,
+							color.g,
+							color.b
+						});
+						this.CreateOrUpdateNametag(vrrig, text);
+					}
+				}
+			}
+		}
+
+		// Token: 0x06000018 RID: 24 RVA: 0x00003E1C File Offset: 0x0000201C
+		private void CreateOrUpdateNametag(VRRig vrrig, string text)
+		{
+			GameObject gameObject;
+			bool flag = !this.nametagObjects.TryGetValue(vrrig, out gameObject) || gameObject == null;
+			if (flag)
+			{
+				gameObject = new GameObject("Nametag");
+				gameObject.transform.SetParent(vrrig.transform);
+				this.nametagObjects[vrrig] = gameObject;
+				TextMesh textMesh = gameObject.AddComponent<TextMesh>();
+				textMesh.alignment = 1;
+				textMesh.anchor = 4;
+				textMesh.color = Color.white;
+				textMesh.fontSize = 120;
+				textMesh.font = Plugin.Variables.Default;
+				textMesh.richText = true;
+			}
+			TextMesh component = gameObject.GetComponent<TextMesh>();
+			bool flag2 = component;
+			if (flag2)
+			{
+				component.text = text;
+				component.font = Plugin.Variables.Default;
+			}
+			gameObject.transform.localPosition = new Vector3(Plugin.Variables.nametagXOffset, Plugin.Variables.nametagYOffset + 0.2f, 0f);
+			float num = 0.15f * Plugin.Variables.size * 0.02f;
+			bool flag3 = Plugin.Variables.size > 2.5f;
+			if (flag3)
+			{
+				num *= 1.5f;
+			}
+			else
+			{
+				bool flag4 = Plugin.Variables.size > 2f;
+				if (flag4)
+				{
+					num *= 1.25f;
+				}
+				else
+				{
+					bool flag5 = Plugin.Variables.size < 0.7f;
+					if (flag5)
+					{
+						num *= 0.7f;
+					}
+				}
+			}
+			gameObject.transform.localScale = Vector3.one * num;
+			bool flag6 = Plugin.Variables.cam;
+			if (flag6)
+			{
+				gameObject.transform.LookAt(Plugin.Variables.cam.transform.position + Plugin.Variables.cam.transform.forward * 1000f);
+			}
+			GameObject gameObject2;
+			bool flag7 = !this.platformTagObjects.TryGetValue(vrrig, out gameObject2) || gameObject2 == null;
+			if (flag7)
+			{
+				gameObject2 = new GameObject("PlatformLogo");
+				gameObject2.transform.SetParent(vrrig.transform);
+				gameObject2.transform.localScale = Vector3.one * 0.0198f;
+				gameObject2.AddComponent<SpriteRenderer>();
+				this.platformTagObjects[vrrig] = gameObject2;
+			}
+			gameObject2.transform.localPosition = new Vector3(Plugin.Variables.platformXOffset, Plugin.Variables.platformYOffset, 0f);
+			SpriteRenderer component2 = gameObject2.GetComponent<SpriteRenderer>();
+			bool showPlatformIcon = Plugin.Variables.showPlatformIcon;
+			if (showPlatformIcon)
+			{
+				string platform = Plugin.GetPlatform(vrrig);
+				bool flag8 = platform == "STEAM" && this.steamSprite != null;
+				if (flag8)
+				{
+					component2.enabled = true;
+					component2.sprite = this.steamSprite;
+				}
+				else
+				{
+					bool flag9 = platform == "OCULUS" && this.questSprite != null;
+					if (flag9)
+					{
+						component2.enabled = true;
+						component2.sprite = this.questSprite;
+					}
+				}
+				bool flag10 = Plugin.Variables.cam != null;
+				if (flag10)
+				{
+					Vector3 position = Plugin.Variables.cam.transform.position;
+					Vector3 vector = position - gameObject2.transform.position;
+					vector.y = 0f;
+					bool flag11 = vector.sqrMagnitude > 0.001f;
+					if (flag11)
+					{
+						gameObject2.transform.rotation = Quaternion.LookRotation(vector, Vector3.up);
+					}
+				}
+				else
+				{
+					component2.enabled = false;
+				}
+				component2.sortingOrder = 10;
+			}
+			else
+			{
+				component2.enabled = false;
+			}
+		}
+
+		// Token: 0x06000019 RID: 25 RVA: 0x00004190 File Offset: 0x00002390
+		private void SaveConfig()
+		{
+			try
+			{
+				Plugin.ConfigData configData = new Plugin.ConfigData
+				{
+					nearClip = Plugin.Variables.nearClip,
+					moveSmoothing = Plugin.Variables.moveSmoothing,
+					rotSmoothing = Plugin.Variables.rotSmoothing,
+					headDist = Plugin.Variables.headDist,
+					fov = Plugin.Variables.fov,
+					lerping = Plugin.Variables.lerping,
+					YOffset = Plugin.Variables.YOffset,
+					size = Plugin.Variables.size,
+					nametagYOffset = Plugin.Variables.nametagYOffset,
+					nametagXOffset = Plugin.Variables.nametagXOffset,
+					platformYOffset = Plugin.Variables.platformYOffset,
+					platformXOffset = Plugin.Variables.platformXOffset,
+					showPlatformIcon = Plugin.Variables.showPlatformIcon,
+					showFPS = Plugin.Variables.showFPS,
+					nametags = Plugin.Variables.nametags,
+					tags = Plugin.Variables.tags,
+					fpsunlock = Plugin.Variables.fpsunlock,
+					raintoggle = Plugin.Variables.raintoggle,
+					followMode = (int)Plugin.Variables.followMode,
+					fontName = ((Plugin.Variables.Default == Plugin.Variables.Designer) ? "Designer" : "Arial")
+				};
+				string contents = JsonUtility.ToJson(configData, true);
+				File.WriteAllText(this.configPath, contents, Encoding.UTF8);
+				base.Logger.LogInfo("Config saved.");
+			}
+			catch (Exception ex)
+			{
+				ManualLogSource logger = base.Logger;
+				string str = "Failed to save config: ";
+				Exception ex2 = ex;
+				logger.LogError(str + ((ex2 != null) ? ex2.ToString() : null));
+			}
+		}
+
+		// Token: 0x0600001A RID: 26 RVA: 0x0000430C File Offset: 0x0000250C
+		private void LoadConfig()
+		{
+			try
+			{
+				bool flag = !File.Exists(this.configPath);
+				if (flag)
+				{
+					base.Logger.LogWarning("No config file found to load.");
+				}
+				else
+				{
+					string text = File.ReadAllText(this.configPath, Encoding.UTF8);
+					Plugin.ConfigData configData = JsonUtility.FromJson<Plugin.ConfigData>(text);
+					Plugin.Variables.nearClip = configData.nearClip;
+					Plugin.Variables.moveSmoothing = configData.moveSmoothing;
+					Plugin.Variables.rotSmoothing = configData.rotSmoothing;
+					Plugin.Variables.headDist = configData.headDist;
+					Plugin.Variables.fov = configData.fov;
+					Plugin.Variables.lerping = configData.lerping;
+					Plugin.Variables.YOffset = configData.YOffset;
+					Plugin.Variables.size = configData.size;
+					Plugin.Variables.nametagYOffset = configData.nametagYOffset;
+					Plugin.Variables.nametagXOffset = configData.nametagXOffset;
+					Plugin.Variables.platformYOffset = configData.platformYOffset;
+					Plugin.Variables.platformXOffset = configData.platformXOffset;
+					Plugin.Variables.showPlatformIcon = configData.showPlatformIcon;
+					Plugin.Variables.showFPS = configData.showFPS;
+					Plugin.Variables.nametags = configData.nametags;
+					Plugin.Variables.tags = configData.tags;
+					Plugin.Variables.fpsunlock = configData.fpsunlock;
+					Plugin.Variables.raintoggle = configData.raintoggle;
+					Plugin.Variables.followMode = (Plugin.Variables.CameraFollowMode)configData.followMode;
+					Plugin.Variables.Default = ((configData.fontName == "Designer") ? Plugin.Variables.Designer : Plugin.Variables.Arial);
+					Application.targetFrameRate = (Plugin.Variables.fpsunlock ? 999 : 144);
+					base.Logger.LogInfo("Config loaded.");
+				}
+			}
+			catch (Exception ex)
+			{
+				ManualLogSource logger = base.Logger;
+				string str = "Failed to load config: ";
+				Exception ex2 = ex;
+				logger.LogError(str + ((ex2 != null) ? ex2.ToString() : null));
+			}
+		}
+
+		// Token: 0x0600001B RID: 27 RVA: 0x000044C4 File Offset: 0x000026C4
+		private Texture2D MakeRoundedTex(int width, int height, Color col, int radius)
+		{
+			Texture2D texture2D = new Texture2D(width, height, 5, false);
+			Color color;
+			color..ctor(0f, 0f, 0f, 0f);
+			for (int i = 0; i < height; i++)
+			{
+				for (int j = 0; j < width; j++)
+				{
+					bool flag = (j < radius && i < radius && new Vector2((float)(j - radius), (float)(i - radius)).magnitude > (float)radius) || (j >= width - radius && i < radius && new Vector2((float)(j - (width - radius - 1)), (float)(i - radius)).magnitude > (float)radius) || (j < radius && i >= height - radius && new Vector2((float)(j - radius), (float)(i - (height - radius - 1))).magnitude > (float)radius) || (j >= width - radius && i >= height - radius && new Vector2((float)(j - (width - radius - 1)), (float)(i - (height - radius - 1))).magnitude > (float)radius);
+					texture2D.SetPixel(j, i, flag ? color : col);
+				}
+			}
+			texture2D.Apply();
+			return texture2D;
+		}
+
+		// Token: 0x0600001C RID: 28 RVA: 0x0000460C File Offset: 0x0000280C
+		private GUIStyle MinimalHeaderStyle()
+		{
+			GUIStyle guistyle = new GUIStyle(GUI.skin.label)
+			{
+				fontSize = this.guiFontSize + 4,
+				fontStyle = 1,
+				alignment = 3
+			};
+			guistyle.normal.textColor = Color.white;
+			return guistyle;
+		}
+
+		// Token: 0x0600001D RID: 29 RVA: 0x00004660 File Offset: 0x00002860
+		private GUIStyle MinimalLabelStyle(bool isValue = false)
+		{
+			GUIStyle guistyle = new GUIStyle(GUI.skin.label)
+			{
+				fontSize = this.guiFontSize,
+				alignment = 3,
+				padding = new RectOffset(2, 2, 2, 2)
+			};
+			guistyle.normal.textColor = (isValue ? Color.white : this.guiAccentColor);
+			return guistyle;
+		}
+
+		// Token: 0x0600001E RID: 30 RVA: 0x000046C4 File Offset: 0x000028C4
+		private GUIStyle MinimalButtonStyle()
+		{
+			GUIStyle guistyle = new GUIStyle(GUI.skin.button)
+			{
+				fontSize = this.guiFontSize,
+				fontStyle = 1,
+				padding = new RectOffset(6, 6, 4, 4),
+				alignment = 4,
+				border = new RectOffset(10, 10, 10, 10)
+			};
+			guistyle.normal.textColor = this.guiAccentColor;
+			guistyle.normal.background = this.roundedTex;
+			guistyle.hover.textColor = (this.useRainbowHeader ? this.GetRainbowColor(0.25f, 0.5f) : this.guiAccentColor);
+			guistyle.hover.background = this.roundedTex;
+			guistyle.active.textColor = this.guiAccentColor;
+			guistyle.active.background = this.roundedTex;
+			return guistyle;
+		}
+
+		// Token: 0x0600001F RID: 31 RVA: 0x000047B0 File Offset: 0x000029B0
+		private GUIStyle MinimalToggleStyle()
+		{
+			GUIStyle guistyle = new GUIStyle(GUI.skin.toggle)
+			{
+				fontSize = this.guiFontSize,
+				fontStyle = 1,
+				padding = new RectOffset(10, 0, 2, 2),
+				fixedHeight = 20f,
+				alignment = 3
+			};
+			guistyle.normal.textColor = this.guiAccentColor;
+			return guistyle;
+		}
+
+		// Token: 0x06000020 RID: 32 RVA: 0x00004820 File Offset: 0x00002A20
+		private GUIStyle MinimalBoxStyle()
+		{
+			GUIStyle guistyle = new GUIStyle(GUI.skin.box)
+			{
+				border = new RectOffset(10, 10, 10, 10),
+				margin = new RectOffset(0, 0, 0, 0),
+				padding = new RectOffset(10, 10, 10, 10)
+			};
+			guistyle.normal.background = this.roundedTex;
+			return guistyle;
+		}
+
+		// Token: 0x06000021 RID: 33 RVA: 0x00004890 File Offset: 0x00002A90
+		private GUIStyle MinimalTextFieldStyle()
+		{
+			GUIStyle guistyle = new GUIStyle(GUI.skin.textField)
+			{
+				fontSize = this.guiFontSize,
+				alignment = 3,
+				fixedWidth = 120f
+			};
+			guistyle.normal.textColor = this.guiAccentColor;
+			return guistyle;
+		}
+
+		// Token: 0x06000022 RID: 34 RVA: 0x000048E8 File Offset: 0x00002AE8
+		private GUIStyle SliderStyle()
+		{
+			GUIStyle guistyle = new GUIStyle(GUI.skin.horizontalSlider)
+			{
+				fixedHeight = 12f,
+				margin = new RectOffset(2, 2, 4, 2)
+			};
+			guistyle.normal.background = this.sliderBG;
+			return guistyle;
+		}
+
+		// Token: 0x06000023 RID: 35 RVA: 0x0000493C File Offset: 0x00002B3C
+		private GUIStyle SliderThumbStyle()
+		{
+			GUIStyle guistyle = new GUIStyle(GUI.skin.horizontalSliderThumb)
+			{
+				fixedHeight = 12f,
+				fixedWidth = 12f,
+				border = new RectOffset(0, 0, 0, 0)
+			};
+			guistyle.normal.background = this.sliderFG;
+			guistyle.hover.background = this.sliderFG;
+			guistyle.active.background = this.sliderFG;
+			guistyle.focused.background = this.sliderFG;
+			guistyle.onNormal.background = this.sliderFG;
+			guistyle.onHover.background = this.sliderFG;
+			guistyle.onActive.background = this.sliderFG;
+			guistyle.onFocused.background = this.sliderFG;
+			return guistyle;
+		}
+
+		// Token: 0x06000024 RID: 36 RVA: 0x00004A18 File Offset: 0x00002C18
+		private Texture2D MakeTex(int width, int height, Color col)
+		{
+			Color[] array = new Color[width * height];
+			for (int i = 0; i < array.Length; i++)
+			{
+				array[i] = col;
+			}
+			Texture2D texture2D = new Texture2D(width, height);
+			texture2D.SetPixels(array);
+			texture2D.Apply();
+			return texture2D;
+		}
+
+		// Token: 0x06000025 RID: 37 RVA: 0x00004A68 File Offset: 0x00002C68
+		private void DrawSliderControl(string label, ref float value, float min, float max)
+		{
+			GUILayout.BeginHorizontal(Array.Empty<GUILayoutOption>());
+			GUILayout.Label(label, this.MinimalLabelStyle(false), new GUILayoutOption[]
+			{
+				GUILayout.Width(90f)
+			});
+			value = GUILayout.HorizontalSlider(value, min, max, this.SliderStyle(), this.SliderThumbStyle(), Array.Empty<GUILayoutOption>());
+			GUILayout.Label(value.ToString("F2"), this.MinimalLabelStyle(true), new GUILayoutOption[]
+			{
+				GUILayout.Width(40f)
+			});
+			GUILayout.EndHorizontal();
+		}
+
+		// Token: 0x06000026 RID: 38 RVA: 0x00004AF0 File Offset: 0x00002CF0
+		private Color EditorColorField(Color color)
+		{
+			GUILayout.BeginHorizontal(Array.Empty<GUILayoutOption>());
+			GUILayout.Label("R", new GUILayoutOption[]
+			{
+				GUILayout.Width(12f)
+			});
+			color.r = GUILayout.HorizontalSlider(color.r, 0f, 1f, new GUILayoutOption[]
+			{
+				GUILayout.Width(60f)
+			});
+			GUILayout.Label("G", new GUILayoutOption[]
+			{
+				GUILayout.Width(12f)
+			});
+			color.g = GUILayout.HorizontalSlider(color.g, 0f, 1f, new GUILayoutOption[]
+			{
+				GUILayout.Width(60f)
+			});
+			GUILayout.Label("B", new GUILayoutOption[]
+			{
+				GUILayout.Width(12f)
+			});
+			color.b = GUILayout.HorizontalSlider(color.b, 0f, 1f, new GUILayoutOption[]
+			{
+				GUILayout.Width(60f)
+			});
+			GUILayout.EndHorizontal();
+			return color;
+		}
+
+		// Token: 0x06000027 RID: 39 RVA: 0x00004BFC File Offset: 0x00002DFC
+		private void HandlePlayerSwitchKeys()
+		{
+			bool flag = Plugin.Variables.rigs == null || Plugin.Variables.rigs.Length == 0;
+			if (!flag)
+			{
+				bool wasPressedThisFrame = Keyboard.current.digit1Key.wasPressedThisFrame;
+				if (wasPressedThisFrame)
+				{
+					this.SetTargetByIndex(0);
+				}
+				bool wasPressedThisFrame2 = Keyboard.current.digit2Key.wasPressedThisFrame;
+				if (wasPressedThisFrame2)
+				{
+					this.SetTargetByIndex(1);
+				}
+				bool wasPressedThisFrame3 = Keyboard.current.digit3Key.wasPressedThisFrame;
+				if (wasPressedThisFrame3)
+				{
+					this.SetTargetByIndex(2);
+				}
+				bool wasPressedThisFrame4 = Keyboard.current.digit4Key.wasPressedThisFrame;
+				if (wasPressedThisFrame4)
+				{
+					this.SetTargetByIndex(3);
+				}
+				bool wasPressedThisFrame5 = Keyboard.current.digit5Key.wasPressedThisFrame;
+				if (wasPressedThisFrame5)
+				{
+					this.SetTargetByIndex(4);
+				}
+				bool wasPressedThisFrame6 = Keyboard.current.digit6Key.wasPressedThisFrame;
+				if (wasPressedThisFrame6)
+				{
+					this.SetTargetByIndex(5);
+				}
+				bool wasPressedThisFrame7 = Keyboard.current.digit7Key.wasPressedThisFrame;
+				if (wasPressedThisFrame7)
+				{
+					this.SetTargetByIndex(6);
+				}
+				bool wasPressedThisFrame8 = Keyboard.current.digit8Key.wasPressedThisFrame;
+				if (wasPressedThisFrame8)
+				{
+					this.SetTargetByIndex(7);
+				}
+				bool wasPressedThisFrame9 = Keyboard.current.digit9Key.wasPressedThisFrame;
+				if (wasPressedThisFrame9)
+				{
+					this.SetTargetByIndex(8);
+				}
+				bool wasPressedThisFrame10 = Keyboard.current.digit0Key.wasPressedThisFrame;
+				if (wasPressedThisFrame10)
+				{
+					this.SetTargetByIndex(9);
+				}
+			}
+		}
+
+		// Token: 0x06000028 RID: 40 RVA: 0x00004D44 File Offset: 0x00002F44
+		private void SetTargetByIndex(int idx)
+		{
+			bool flag = Plugin.Variables.rigs != null && idx >= 0 && idx < Plugin.Variables.rigs.Length;
+			if (flag)
+			{
+				Plugin.Variables.target = Plugin.Variables.rigs[idx];
+				base.Logger.LogInfo(string.Format("Switched to player {0}: {1}", idx + 1, Plugin.Variables.target.playerNameVisible));
+			}
+		}
+
+		// Token: 0x04000001 RID: 1
+		private bool showMain = true;
+
+		// Token: 0x04000002 RID: 2
+		private bool showCamera;
+
+		// Token: 0x04000003 RID: 3
+		private bool showMap;
+
+		// Token: 0x04000004 RID: 4
+		private bool showNametags;
+
+		// Token: 0x04000005 RID: 5
+		private bool showMisc;
+
+		// Token: 0x04000006 RID: 6
+		private bool showTime;
+
+		// Token: 0x04000007 RID: 7
+		private bool showCustomize;
+
+		// Token: 0x04000008 RID: 8
+		private Vector2 nametagScroll;
+
+		// Token: 0x04000009 RID: 9
+		private Vector2 miscScroll;
+
+		// Token: 0x0400000A RID: 10
+		private Vector2 cameraScroll;
+
+		// Token: 0x0400000B RID: 11
+		private Vector2 mapScroll;
+
+		// Token: 0x0400000C RID: 12
+		private Vector2 timeScroll;
+
+		// Token: 0x0400000D RID: 13
+		private Vector2 customizeScroll;
+
+		// Token: 0x0400000E RID: 14
+		private InputAction toggleAction;
+
+		// Token: 0x0400000F RID: 15
+		private Texture2D questLogo;
+
+		// Token: 0x04000010 RID: 16
+		private Texture2D steamLogo;
+
+		// Token: 0x04000011 RID: 17
+		private Texture2D borderTex;
+
+		// Token: 0x04000012 RID: 18
+		private Texture2D sliderBG;
+
+		// Token: 0x04000013 RID: 19
+		private Texture2D sliderFG;
+
+		// Token: 0x04000014 RID: 20
+		private Texture2D gradientTex;
+
+		// Token: 0x04000015 RID: 21
+		private Texture2D headerTex;
+
+		// Token: 0x04000016 RID: 22
+		private Texture2D roundedTex;
+
+		// Token: 0x04000017 RID: 23
+		private Sprite questSprite;
+
+		// Token: 0x04000018 RID: 24
+		private Sprite steamSprite;
+
+		// Token: 0x04000019 RID: 25
+		private readonly Dictionary<VRRig, GameObject> nametagObjects = new Dictionary<VRRig, GameObject>();
+
+		// Token: 0x0400001A RID: 26
+		private readonly Dictionary<VRRig, GameObject> platformTagObjects = new Dictionary<VRRig, GameObject>();
+
+		// Token: 0x0400001B RID: 27
+		private VRRig pinnedPlayer;
+
+		// Token: 0x0400001C RID: 28
+		private const float NAMETAG_BASE_SIZE = 0.15f;
+
+		// Token: 0x0400001D RID: 29
+		private const float NAMETAG_SCALE_FACTOR = 0.02f;
+
+		// Token: 0x0400001E RID: 30
+		private readonly string configPath = Path.Combine(Paths.PluginPath, "defaced_config.json");
+
+		// Token: 0x0400001F RID: 31
+		private AudioListener camListener;
+
+		// Token: 0x04000020 RID: 32
+		private Color guiAccentColor = new Color(1f, 0.07f, 0.58f, 1f);
+
+		// Token: 0x04000021 RID: 33
+		private Color guiBgColor = new Color(0.05f, 0.05f, 0.05f, 0.98f);
+
+		// Token: 0x04000022 RID: 34
+		private int guiFontSize = 14;
+
+		// Token: 0x04000023 RID: 35
+		private bool useRainbowHeader = true;
+
+		// Token: 0x04000024 RID: 36
+		public static bool loaded = false;
+
+		// Token: 0x04000025 RID: 37
+		public static bool starter = true;
+
+		// Token: 0x04000026 RID: 38
+		public static bool Online;
+
+		// Token: 0x04000027 RID: 39
+		public static string Code = "";
+
+		// Token: 0x04000028 RID: 40
+		public static bool fpsunlock = false;
+
+		// Token: 0x04000029 RID: 41
+		public static float lerping = 1f;
+
+		// Token: 0x0400002A RID: 42
+		public static float lerp2;
+
+		// Token: 0x0400002B RID: 43
+		public static BetterDayNightManager GameTime = BetterDayNightManager.instance;
+
+		// Token: 0x0400002C RID: 44
+		public static bool raintoggle;
+
+		// Token: 0x02000003 RID: 3
+		[Serializable]
+		public class ConfigData
+		{
+			// Token: 0x0400002D RID: 45
+			public float nearClip;
+
+			// Token: 0x0400002E RID: 46
+			public float moveSmoothing;
+
+			// Token: 0x0400002F RID: 47
+			public float rotSmoothing;
+
+			// Token: 0x04000030 RID: 48
+			public float headDist;
+
+			// Token: 0x04000031 RID: 49
+			public float fov;
+
+			// Token: 0x04000032 RID: 50
+			public float lerping;
+
+			// Token: 0x04000033 RID: 51
+			public float YOffset;
+
+			// Token: 0x04000034 RID: 52
+			public float size;
+
+			// Token: 0x04000035 RID: 53
+			public float nametagYOffset;
+
+			// Token: 0x04000036 RID: 54
+			public float nametagXOffset;
+
+			// Token: 0x04000037 RID: 55
+			public float platformYOffset;
+
+			// Token: 0x04000038 RID: 56
+			public float platformXOffset;
+
+			// Token: 0x04000039 RID: 57
+			public bool showPlatformIcon;
+
+			// Token: 0x0400003A RID: 58
+			public bool showFPS;
+
+			// Token: 0x0400003B RID: 59
+			public bool nametags;
+
+			// Token: 0x0400003C RID: 60
+			public bool tags;
+
+			// Token: 0x0400003D RID: 61
+			public bool fpsunlock;
+
+			// Token: 0x0400003E RID: 62
+			public bool raintoggle;
+
+			// Token: 0x0400003F RID: 63
+			public int followMode;
+
+			// Token: 0x04000040 RID: 64
+			public string fontName;
+		}
+
+		// Token: 0x02000004 RID: 4
+		internal static class Variables
+		{
+			// Token: 0x0600002D RID: 45 RVA: 0x00004E88 File Offset: 0x00003088
+			public static Font Create(string path)
+			{
+				Font result;
+				using (Stream manifestResourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream(path))
+				{
+					byte[] array = new byte[manifestResourceStream.Length];
+					manifestResourceStream.Read(array, 0, array.Length);
+					string text = Path.Combine(Application.temporaryCachePath, "tempfont.ttf");
+					File.WriteAllBytes(text, array);
+					result = new Font(text);
+				}
+				return result;
+			}
+
+			// Token: 0x17000001 RID: 1
+			// (get) Token: 0x0600002E RID: 46 RVA: 0x00004EFC File Offset: 0x000030FC
+			// (set) Token: 0x0600002F RID: 47 RVA: 0x00004F03 File Offset: 0x00003103
+			public static string Code { get; internal set; }
+
+			// Token: 0x17000002 RID: 2
+			// (get) Token: 0x06000030 RID: 48 RVA: 0x00004F0B File Offset: 0x0000310B
+			// (set) Token: 0x06000031 RID: 49 RVA: 0x00004F12 File Offset: 0x00003112
+			public static bool Online { get; internal set; }
+
+			// Token: 0x04000041 RID: 65
+			public static Font Designer;
+
+			// Token: 0x04000042 RID: 66
+			public static Font Default;
+
+			// Token: 0x04000043 RID: 67
+			public static Font Arial = Font.CreateDynamicFontFromOSFont("Arial", 16);
+
+			// Token: 0x04000044 RID: 68
+			public static Camera cam;
+
+			// Token: 0x04000045 RID: 69
+			public static float nearClip = 0.01f;
+
+			// Token: 0x04000046 RID: 70
+			public static float moveSmoothing;
+
+			// Token: 0x04000047 RID: 71
+			public static float rotSmoothing;
+
+			// Token: 0x04000048 RID: 72
+			public static float headDist;
+
+			// Token: 0x04000049 RID: 73
+			public static float fov = 90f;
+
+			// Token: 0x0400004A RID: 74
+			public static float YOffset;
+
+			// Token: 0x0400004B RID: 75
+			public static float XOffset;
+
+			// Token: 0x0400004C RID: 76
+			public static string looker = "None";
+
+			// Token: 0x0400004D RID: 77
+			public static bool swapper = false;
+
+			// Token: 0x0400004E RID: 78
+			public static bool bodyOnlyTracking = false;
+
+			// Token: 0x0400004F RID: 79
+			public static VRRig[] rigs;
+
+			// Token: 0x04000050 RID: 80
+			public static VRRig target;
+
+			// Token: 0x04000051 RID: 81
+			public static bool tags;
+
+			// Token: 0x04000052 RID: 82
+			public static bool tagwindow;
+
+			// Token: 0x04000053 RID: 83
+			public static bool nametags = false;
+
+			// Token: 0x04000054 RID: 84
+			public static bool showFPS;
+
+			// Token: 0x04000055 RID: 85
+			public static bool showPlatformIcon = false;
+
+			// Token: 0x04000056 RID: 86
+			public static bool raintoggle;
+
+			// Token: 0x04000057 RID: 87
+			public static bool fpsunlock;
+
+			// Token: 0x04000058 RID: 88
+			public static bool loaded;
+
+			// Token: 0x04000059 RID: 89
+			public static bool starter;
+
+			// Token: 0x0400005A RID: 90
+			public static float size = 1f;
+
+			// Token: 0x0400005B RID: 91
+			public static float Xangle = 0.65f;
+
+			// Token: 0x0400005C RID: 92
+			public static float lerping;
+
+			// Token: 0x0400005D RID: 93
+			public static float lerp2;
+
+			// Token: 0x0400005E RID: 94
+			public static float nametagYOffset = 0.65f;
+
+			// Token: 0x0400005F RID: 95
+			public static float nametagXOffset = 0f;
+
+			// Token: 0x04000060 RID: 96
+			public static float platformYOffset = 1f;
+
+			// Token: 0x04000061 RID: 97
+			public static float platformXOffset = 0f;
+
+			// Token: 0x04000062 RID: 98
+			public static bool smoothFollow = true;
+
+			// Token: 0x04000065 RID: 101
+			public static Plugin.Variables.CameraFollowMode followMode = Plugin.Variables.CameraFollowMode.Body;
+
+			// Token: 0x02000005 RID: 5
+			public enum CameraFollowMode
+			{
+				// Token: 0x04000067 RID: 103
+				Body,
+				// Token: 0x04000068 RID: 104
+				Head
+			}
+		}
+	}
+}
