@@ -6,7 +6,6 @@ using System.Text;
 using BepInEx;
 using BepInEx.Logging;
 using GorillaNetworking;
-using HarmonyLib;
 using Photon.Pun;
 using Photon.Realtime;
 using UnityEngine;
@@ -41,38 +40,9 @@ namespace Defaced
 				this.questSprite = Sprite.Create(this.questLogo, new Rect(0f, 0f, (float)this.questLogo.width, (float)this.questLogo.height), new Vector2(0.5f, 0.5f));
 			}
 			this.DisableOtherAudioListeners();
-			this.minimapBorderTex = this.MakeRoundedTex(256, 256, new Color(0.08f, 0.08f, 0.08f, 0.85f), 32);
-			this.SetupMinimapCamera();
-			this.LoadFontsFromPluginDir();
 		}
 
-		// Token: 0x06000002 RID: 2 RVA: 0x000021BC File Offset: 0x000003BC
-		private void LoadFontsFromPluginDir()
-		{
-			this.loadedFonts.Clear();
-			this.loadedFonts["Arial"] = Plugin.Variables.Arial;
-			string[] files = Directory.GetFiles(Paths.PluginPath, "*.*", SearchOption.TopDirectoryOnly);
-			foreach (string text in files)
-			{
-				string a = Path.GetExtension(text).ToLowerInvariant();
-				bool flag = a == ".ttf" || a == ".otf";
-				if (flag)
-				{
-					try
-					{
-						string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(text);
-						Font value = new Font(text);
-						this.loadedFonts[fileNameWithoutExtension] = value;
-					}
-					catch (Exception arg)
-					{
-						base.Logger.LogError(string.Format("Failed to load font {0}: {1}", text, arg));
-					}
-				}
-			}
-		}
-
-		// Token: 0x06000003 RID: 3 RVA: 0x0000229C File Offset: 0x0000049C
+		// Token: 0x06000002 RID: 2 RVA: 0x0000217C File Offset: 0x0000037C
 		private void OnDestroy()
 		{
 			InputAction inputAction = this.toggleAction;
@@ -110,19 +80,9 @@ namespace Defaced
 					component.enabled = true;
 				}
 			}
-			bool flag5 = this.minimapCamera != null;
-			if (flag5)
-			{
-				Object.Destroy(this.minimapCamera.gameObject);
-			}
-			bool flag6 = this.minimapRenderTexture != null;
-			if (flag6)
-			{
-				this.minimapRenderTexture.Release();
-			}
 		}
 
-		// Token: 0x06000004 RID: 4 RVA: 0x00002400 File Offset: 0x00000600
+		// Token: 0x06000003 RID: 3 RVA: 0x000022A0 File Offset: 0x000004A0
 		private void LoadLogo(ref Texture2D tex, string file)
 		{
 			string path = Path.Combine(Paths.PluginPath, file);
@@ -138,7 +98,7 @@ namespace Defaced
 			}
 		}
 
-		// Token: 0x06000005 RID: 5 RVA: 0x00002460 File Offset: 0x00000660
+		// Token: 0x06000004 RID: 4 RVA: 0x00002300 File Offset: 0x00000500
 		private static string GetPlatform(VRRig rig)
 		{
 			string concatStringOfCosmeticsAllowed = rig.concatStringOfCosmeticsAllowed;
@@ -155,7 +115,7 @@ namespace Defaced
 			return result;
 		}
 
-		// Token: 0x06000006 RID: 6 RVA: 0x000024C4 File Offset: 0x000006C4
+		// Token: 0x06000005 RID: 5 RVA: 0x00002364 File Offset: 0x00000564
 		private void CreateTextures()
 		{
 			this.headerTex = this.MakeTex(1, 1, this.guiBgColor);
@@ -168,73 +128,16 @@ namespace Defaced
 			this.sliderBG = this.MakeTex(1, 16, new Color(0.1f, 0.1f, 0.1f, 1f));
 			this.sliderFG = this.MakeTex(1, 16, this.guiAccentColor);
 			this.roundedTex = this.MakeRoundedTex(32, 32, this.guiBgColor, 10);
-			this.minimapBorderTex = this.MakeRoundedTex(256, 256, new Color(0.08f, 0.08f, 0.08f, 0.85f), 32);
 		}
 
-		// Token: 0x06000007 RID: 7 RVA: 0x000025D8 File Offset: 0x000007D8
-		private void SetupMinimapCamera()
-		{
-			bool flag = this.minimapCamera != null;
-			if (flag)
-			{
-				Object.Destroy(this.minimapCamera.gameObject);
-			}
-			bool flag2 = this.minimapRenderTexture != null;
-			if (flag2)
-			{
-				this.minimapRenderTexture.Release();
-			}
-			this.minimapRenderTexture = new RenderTexture(256, 256, 16, 0);
-			this.minimapRenderTexture.Create();
-			this.minimapCamera = new GameObject("MinimapCamera").AddComponent<Camera>();
-			this.minimapCamera.orthographic = true;
-			this.minimapCamera.orthographicSize = 30f;
-			this.minimapCamera.clearFlags = 2;
-			this.minimapCamera.backgroundColor = new Color(0f, 0f, 0f, 0f);
-			this.minimapCamera.cullingMask = -1;
-			this.minimapCamera.targetTexture = this.minimapRenderTexture;
-			this.minimapCamera.depth = 100f;
-			this.minimapCamera.enabled = true;
-			this.minimapCamera.allowMSAA = false;
-			this.minimapCamera.allowHDR = false;
-			this.minimapCamera.gameObject.hideFlags = 61;
-			AudioListener component = this.minimapCamera.GetComponent<AudioListener>();
-			bool flag3 = component != null;
-			if (flag3)
-			{
-				Object.Destroy(component);
-			}
-		}
-
-		// Token: 0x06000008 RID: 8 RVA: 0x00002734 File Offset: 0x00000934
-		private void UpdateMinimapCamera()
-		{
-			bool flag = !this.showMinimap;
-			if (!flag)
-			{
-				bool flag2 = this.minimapCamera == null || this.minimapRenderTexture == null;
-				if (flag2)
-				{
-					this.SetupMinimapCamera();
-				}
-				bool flag3 = Plugin.Variables.target == null;
-				if (!flag3)
-				{
-					Vector3 position = Plugin.Variables.target.transform.position;
-					this.minimapCamera.transform.position = new Vector3(position.x, position.y + 40f, position.z);
-					this.minimapCamera.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
-				}
-			}
-		}
-
-		// Token: 0x06000009 RID: 9 RVA: 0x000027F0 File Offset: 0x000009F0
+		// Token: 0x06000006 RID: 6 RVA: 0x00002448 File Offset: 0x00000648
 		private Color GetRainbowColor(float speed = 1f, float offset = 0f)
 		{
 			float num = (Time.realtimeSinceStartup * speed + offset) % 1f;
 			return Color.HSVToRGB(num, 0.8f, 1f);
 		}
 
-		// Token: 0x0600000A RID: 10 RVA: 0x00002824 File Offset: 0x00000A24
+		// Token: 0x06000007 RID: 7 RVA: 0x0000247C File Offset: 0x0000067C
 		private void DestroyTextures()
 		{
 			foreach (Texture2D texture2D in new Texture2D[]
@@ -244,8 +147,7 @@ namespace Defaced
 				this.sliderBG,
 				this.sliderFG,
 				this.headerTex,
-				this.roundedTex,
-				this.minimapBorderTex
+				this.roundedTex
 			})
 			{
 				bool flag = texture2D;
@@ -256,7 +158,7 @@ namespace Defaced
 			}
 		}
 
-		// Token: 0x0600000B RID: 11 RVA: 0x0000289C File Offset: 0x00000A9C
+		// Token: 0x06000008 RID: 8 RVA: 0x000024EC File Offset: 0x000006EC
 		public void Start()
 		{
 			for (int i = 1; i < BetterDayNightManager.instance.weatherCycle.Length; i++)
@@ -267,7 +169,7 @@ namespace Defaced
 			Plugin.Variables.Default = Plugin.Variables.Arial;
 		}
 
-		// Token: 0x0600000C RID: 12 RVA: 0x000028F0 File Offset: 0x00000AF0
+		// Token: 0x06000009 RID: 9 RVA: 0x00002540 File Offset: 0x00000740
 		public void Init()
 		{
 			Plugin.Variables.cam = new GameObject("PrivateCamera").AddComponent<Camera>();
@@ -277,18 +179,17 @@ namespace Defaced
 				gameObject.SetActive(false);
 			}
 			Plugin.Variables.cam.cameraType = 1;
+			Plugin.Variables.cam.depth = 2f;
 			this.camListener = Plugin.Variables.cam.gameObject.GetComponent<AudioListener>();
 			bool flag = this.camListener == null;
 			if (flag)
 			{
 				this.camListener = Plugin.Variables.cam.gameObject.AddComponent<AudioListener>();
 			}
-			this.ApplyCameraCustomizations();
 			this.DisableOtherAudioListeners();
-			this.ShowNotification("Camera initialized.", 2f);
 		}
 
-		// Token: 0x0600000D RID: 13 RVA: 0x00002990 File Offset: 0x00000B90
+		// Token: 0x0600000A RID: 10 RVA: 0x000025D8 File Offset: 0x000007D8
 		private void DisableOtherAudioListeners()
 		{
 			foreach (AudioListener audioListener in Object.FindObjectsOfType<AudioListener>())
@@ -301,18 +202,16 @@ namespace Defaced
 			}
 		}
 
-		// Token: 0x0600000E RID: 14 RVA: 0x000029E2 File Offset: 0x00000BE2
+		// Token: 0x0600000B RID: 11 RVA: 0x0000262A File Offset: 0x0000082A
 		private void LateUpdate()
 		{
 			this.HandleCameraControls();
 			this.UpdateNametags();
 			this.UpdateRigLerping();
 			this.HandlePlayerSwitchKeys();
-			this.UpdateMinimapCamera();
-			this.ApplyCameraCustomizations();
 		}
 
-		// Token: 0x0600000F RID: 15 RVA: 0x00002A10 File Offset: 0x00000C10
+		// Token: 0x0600000C RID: 12 RVA: 0x0000264C File Offset: 0x0000084C
 		private void HandleCameraControls()
 		{
 			bool isPressed = Keyboard.current.upArrowKey.isPressed;
@@ -335,34 +234,7 @@ namespace Defaced
 			this.UpdateCameraPosition();
 		}
 
-		// Token: 0x06000010 RID: 16 RVA: 0x00002AB0 File Offset: 0x00000CB0
-		private void Update()
-		{
-			bool flag = this.timerRunning;
-			if (flag)
-			{
-				double num = (double)Time.realtimeSinceStartup;
-				this.scoreboardTimer += (float)(num - this.timerLastRealtime);
-				this.timerLastRealtime = num;
-				bool flag2 = this.scoreboardTimer < -10f;
-				if (flag2)
-				{
-					this.scoreboardTimer = -10f;
-				}
-			}
-			bool flag3 = this.notificationTimer > 0f;
-			if (flag3)
-			{
-				this.notificationTimer -= Time.deltaTime;
-				bool flag4 = this.notificationTimer <= 0f;
-				if (flag4)
-				{
-					this.notificationText = "";
-				}
-			}
-		}
-
-		// Token: 0x06000011 RID: 17 RVA: 0x00002B54 File Offset: 0x00000D54
+		// Token: 0x0600000D RID: 13 RVA: 0x000026EC File Offset: 0x000008EC
 		private void UpdateCameraPosition()
 		{
 			VRRig vrrig = this.pinnedPlayer ?? Plugin.Variables.target;
@@ -384,33 +256,18 @@ namespace Defaced
 						Plugin.Variables.looker = "Head";
 						vector2 = transform.forward;
 						up = transform.up;
-						vector = transform.position - vector2 * (Plugin.Variables.headDist * 3f);
-						quaternion = Quaternion.LookRotation(vector2, up);
-						vector += transform.up * Plugin.Variables.YOffset;
 					}
 					else
 					{
-						bool flag4 = Plugin.Variables.followMode == Plugin.Variables.CameraFollowMode.Front;
-						if (flag4)
-						{
-							Plugin.Variables.looker = "Front";
-							vector2 = transform.forward;
-							up = transform.up;
-							vector = transform.position + vector2 * (Plugin.Variables.headDist * 3f) + transform.up * Plugin.Variables.YOffset;
-							quaternion = Quaternion.LookRotation(-vector2, up);
-						}
-						else
-						{
-							Plugin.Variables.looker = "Body";
-							vector2.y = 0f;
-							vector2 = ((vector2.sqrMagnitude > 0.001f) ? vector2.normalized : Vector3.forward);
-							vector = transform.position - vector2 * (Plugin.Variables.headDist * 3f);
-							quaternion = Quaternion.LookRotation(vector2, up);
-							vector += transform.up * Plugin.Variables.YOffset;
-						}
+						Plugin.Variables.looker = "Body";
+						vector2.y = 0f;
+						vector2 = ((vector2.sqrMagnitude > 0.001f) ? vector2.normalized : Vector3.forward);
 					}
-					bool flag5 = Plugin.Variables.headDist == 0f && Plugin.Variables.followMode != Plugin.Variables.CameraFollowMode.Front;
-					if (flag5)
+					vector = transform.position - vector2 * (Plugin.Variables.headDist * 3f);
+					quaternion = Quaternion.LookRotation(vector2, up);
+					vector += transform.up * Plugin.Variables.YOffset;
+					bool flag4 = Plugin.Variables.headDist == 0f;
+					if (flag4)
 					{
 						vector = transform.position + transform.up * Plugin.Variables.YOffset + vector2 * 0.15f;
 						quaternion = Quaternion.LookRotation(vector2, up);
@@ -424,13 +281,13 @@ namespace Defaced
 				Plugin.Variables.cam.fieldOfView = Plugin.Variables.fov;
 				float num = Plugin.Variables.smoothFollow ? (1f - Plugin.Variables.moveSmoothing) : (1f - Plugin.Variables.moveSmoothing);
 				float num2 = Plugin.Variables.smoothFollow ? (1f - Plugin.Variables.rotSmoothing) : (1f - Plugin.Variables.rotSmoothing);
-				bool flag6 = num < 0.01f;
-				if (flag6)
+				bool flag5 = num < 0.01f;
+				if (flag5)
 				{
 					num = 0.01f;
 				}
-				bool flag7 = num2 < 0.01f;
-				if (flag7)
+				bool flag6 = num2 < 0.01f;
+				if (flag6)
 				{
 					num2 = 0.01f;
 				}
@@ -439,33 +296,11 @@ namespace Defaced
 			}
 		}
 
-		// Token: 0x06000012 RID: 18 RVA: 0x00002EE0 File Offset: 0x000010E0
-		private void ApplyCameraCustomizations()
-		{
-			bool flag = Plugin.Variables.cam == null;
-			if (!flag)
-			{
-				switch (this.camClearFlags)
-				{
-				case 0:
-					Plugin.Variables.cam.clearFlags = 2;
-					break;
-				case 1:
-					Plugin.Variables.cam.clearFlags = 1;
-					break;
-				case 2:
-					Plugin.Variables.cam.clearFlags = 3;
-					break;
-				}
-				Plugin.Variables.cam.cullingMask = (this.camCullingEverything ? -1 : (1 << LayerMask.NameToLayer("Default")));
-			}
-		}
-
-		// Token: 0x06000013 RID: 19 RVA: 0x00002F6C File Offset: 0x0000116C
+		// Token: 0x0600000E RID: 14 RVA: 0x000029B4 File Offset: 0x00000BB4
 		private void DrawMainWindow()
 		{
 			float num = 340f;
-			float num2 = 520f;
+			float num2 = 420f;
 			float num3 = ((float)Screen.width - num) / 2f;
 			float num4 = ((float)Screen.height - num2) / 2f;
 			Rect rect;
@@ -473,186 +308,46 @@ namespace Defaced
 			GUILayout.BeginArea(rect, this.MinimalBoxStyle());
 			GUILayout.Label("\ud83e\udd8d DEFACED GUI", this.MinimalHeaderStyle(), Array.Empty<GUILayoutOption>());
 			GUILayout.Space(10f);
-			bool flag = this.DrawButtonWithTooltip(this.showCamera ? "Camera [OPEN]" : "Camera", "Open/close camera settings window", Array.Empty<GUILayoutOption>());
+			bool flag = GUILayout.Button(this.showCamera ? "Camera [OPEN]" : "Camera", this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
 			if (flag)
 			{
 				this.showCamera = !this.showCamera;
 			}
-			bool flag2 = this.DrawButtonWithTooltip(this.showMap ? "Map [OPEN]" : "Map", "Open/close map loader window", Array.Empty<GUILayoutOption>());
+			bool flag2 = GUILayout.Button(this.showMap ? "Map [OPEN]" : "Map", this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
 			if (flag2)
 			{
 				this.showMap = !this.showMap;
 			}
-			bool flag3 = this.DrawButtonWithTooltip(this.showNametags ? "Nametags [OPEN]" : "Nametags", "Open/close nametag settings window", Array.Empty<GUILayoutOption>());
+			bool flag3 = GUILayout.Button(this.showNametags ? "Nametags [OPEN]" : "Nametags", this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
 			if (flag3)
 			{
 				this.showNametags = !this.showNametags;
 			}
-			bool flag4 = this.DrawButtonWithTooltip(this.showMisc ? "Misc [OPEN]" : "Misc", "Open/close miscellaneous settings window", Array.Empty<GUILayoutOption>());
+			bool flag4 = GUILayout.Button(this.showMisc ? "Misc [OPEN]" : "Misc", this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
 			if (flag4)
 			{
 				this.showMisc = !this.showMisc;
 			}
-			bool flag5 = this.DrawButtonWithTooltip(this.showTime ? "Time & Weather [OPEN]" : "Time & Weather", "Open/close time and weather window", Array.Empty<GUILayoutOption>());
+			bool flag5 = GUILayout.Button(this.showTime ? "Time & Weather [OPEN]" : "Time & Weather", this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
 			if (flag5)
 			{
 				this.showTime = !this.showTime;
 			}
-			bool flag6 = this.DrawButtonWithTooltip(this.showCustomize ? "Customize [OPEN]" : "Customize", "Open/close GUI customization window", Array.Empty<GUILayoutOption>());
+			bool flag6 = GUILayout.Button(this.showCustomize ? "Customize [OPEN]" : "Customize", this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
 			if (flag6)
 			{
 				this.showCustomize = !this.showCustomize;
 			}
-			GUILayout.Space(10f);
-			this.showScoreboard = this.DrawToggleWithTooltip(this.showScoreboard, "Show Scoreboard", "Show or hide the scoreboard bar", Array.Empty<GUILayoutOption>());
-			this.showMinimap = this.DrawToggleWithTooltip(this.showMinimap, "Show Minimap", "Show or hide the minimap", Array.Empty<GUILayoutOption>());
 			GUILayout.Space(20f);
 			GUILayout.Label("Press Tab to toggle this menu.", this.MinimalLabelStyle(false), Array.Empty<GUILayoutOption>());
 			GUILayout.EndArea();
 		}
 
-		// Token: 0x06000014 RID: 20 RVA: 0x000031AC File Offset: 0x000013AC
-		private void DrawScoreboardBar()
-		{
-			bool flag = !this.showScoreboard;
-			if (!flag)
-			{
-				float num = 520f;
-				float num2 = 80f;
-				float num3 = ((float)Screen.width - num) / 2f;
-				float num4 = 10f;
-				Rect rect;
-				rect..ctor(num3, num4, num, num2);
-				GUILayout.BeginArea(rect, this.MinimalBoxStyle());
-				GUILayout.BeginHorizontal(Array.Empty<GUILayoutOption>());
-				this.team1Score = this.DrawTextFieldWithTooltip(this.team1Score, 4, this.ScoreboardScoreStyle(), "Team 1 score", new GUILayoutOption[]
-				{
-					GUILayout.Width(60f),
-					GUILayout.Height(48f)
-				});
-				GUILayout.FlexibleSpace();
-				this.team1Name = this.DrawTextFieldWithTooltip(this.team1Name, 16, this.ScoreboardTeamStyle(), "Team 1 name", new GUILayoutOption[]
-				{
-					GUILayout.Width(140f),
-					GUILayout.Height(48f)
-				});
-				GUILayout.FlexibleSpace();
-				GUILayout.BeginVertical(new GUILayoutOption[]
-				{
-					GUILayout.Width(120f)
-				});
-				GUILayout.FlexibleSpace();
-				string text = (this.scoreboardTimer < 0f) ? string.Format("-{0:D2}", Mathf.Abs((int)this.scoreboardTimer)) : string.Format("{0:D2}", (int)this.scoreboardTimer);
-				GUILayout.Label(text, new GUIStyle(GUI.skin.label)
-				{
-					fontSize = this.guiFontSize + 18,
-					fontStyle = 1,
-					alignment = 4,
-					normal = 
-					{
-						textColor = Color.white
-					}
-				}, new GUILayoutOption[]
-				{
-					GUILayout.Height(40f)
-				});
-				GUILayout.BeginHorizontal(Array.Empty<GUILayoutOption>());
-				bool flag2 = this.DrawButtonWithTooltip(this.timerRunning ? "Pause" : "Start", "Start or pause the scoreboard timer", new GUILayoutOption[]
-				{
-					GUILayout.Width(54f),
-					GUILayout.Height(24f)
-				});
-				if (flag2)
-				{
-					bool flag3 = !this.timerRunning;
-					if (flag3)
-					{
-						this.timerRunning = true;
-						this.timerLastRealtime = (double)Time.realtimeSinceStartup;
-					}
-					else
-					{
-						this.timerRunning = false;
-					}
-				}
-				bool flag4 = this.DrawButtonWithTooltip("Reset", "Reset the scoreboard timer", new GUILayoutOption[]
-				{
-					GUILayout.Width(54f),
-					GUILayout.Height(24f)
-				});
-				if (flag4)
-				{
-					this.timerRunning = false;
-					this.scoreboardTimer = -10f;
-					this.ShowNotification("Scoreboard timer reset.", 2f);
-				}
-				GUILayout.EndHorizontal();
-				GUILayout.FlexibleSpace();
-				GUILayout.EndVertical();
-				GUILayout.FlexibleSpace();
-				this.team2Name = this.DrawTextFieldWithTooltip(this.team2Name, 16, this.ScoreboardTeamStyle(), "Team 2 name", new GUILayoutOption[]
-				{
-					GUILayout.Width(140f),
-					GUILayout.Height(48f)
-				});
-				GUILayout.FlexibleSpace();
-				this.team2Score = this.DrawTextFieldWithTooltip(this.team2Score, 4, this.ScoreboardScoreStyle(), "Team 2 score", new GUILayoutOption[]
-				{
-					GUILayout.Width(60f),
-					GUILayout.Height(48f)
-				});
-				GUILayout.EndHorizontal();
-				GUILayout.EndArea();
-			}
-		}
-
-		// Token: 0x06000015 RID: 21 RVA: 0x000034DC File Offset: 0x000016DC
-		private GUIStyle ScoreboardTeamStyle()
-		{
-			GUIStyle guistyle = new GUIStyle(GUI.skin.textField)
-			{
-				fontSize = this.guiFontSize + 16,
-				fontStyle = 1,
-				alignment = 4,
-				border = new RectOffset(0, 0, 0, 0)
-			};
-			guistyle.normal.background = null;
-			guistyle.focused.background = null;
-			guistyle.active.background = null;
-			guistyle.hover.background = null;
-			guistyle.normal.textColor = Color.white;
-			guistyle.focused.textColor = Color.white;
-			guistyle.active.textColor = Color.white;
-			guistyle.hover.textColor = Color.white;
-			return guistyle;
-		}
-
-		// Token: 0x06000016 RID: 22 RVA: 0x000035A8 File Offset: 0x000017A8
-		private GUIStyle ScoreboardScoreStyle()
-		{
-			GUIStyle guistyle = new GUIStyle(GUI.skin.textField)
-			{
-				fontSize = this.guiFontSize + 20,
-				fontStyle = 1,
-				alignment = 4,
-				border = new RectOffset(0, 0, 0, 0)
-			};
-			guistyle.normal.background = null;
-			guistyle.focused.background = null;
-			guistyle.active.background = null;
-			guistyle.hover.background = null;
-			guistyle.normal.textColor = this.guiAccentColor;
-			guistyle.focused.textColor = this.guiAccentColor;
-			guistyle.active.textColor = this.guiAccentColor;
-			guistyle.hover.textColor = this.guiAccentColor;
-			return guistyle;
-		}
-
-		// Token: 0x06000017 RID: 23 RVA: 0x00003678 File Offset: 0x00001878
+		// Token: 0x0600000F RID: 15 RVA: 0x00002BA4 File Offset: 0x00000DA4
 		private void DrawCameraWindow()
 		{
 			float num = 400f;
-			float num2 = 600f;
+			float num2 = 420f;
 			float num3 = 24f;
 			float num4 = 24f;
 			Rect rect;
@@ -661,7 +356,7 @@ namespace Defaced
 			GUILayout.BeginHorizontal(Array.Empty<GUILayoutOption>());
 			GUILayout.Label("Camera", this.MinimalHeaderStyle(), Array.Empty<GUILayoutOption>());
 			GUILayout.FlexibleSpace();
-			bool flag = this.DrawButtonWithTooltip("✕", "Close camera window", new GUILayoutOption[]
+			bool flag = GUILayout.Button("✕", this.MinimalButtonStyle(), new GUILayoutOption[]
 			{
 				GUILayout.Width(32f),
 				GUILayout.Height(32f)
@@ -675,48 +370,34 @@ namespace Defaced
 			{
 				GUILayout.ExpandHeight(true)
 			});
-			this.DrawSliderControl("Near Clip", ref Plugin.Variables.nearClip, 0.01f, 0.99f, "Camera near clipping plane");
-			this.DrawSliderControl("Move Smoothing", ref Plugin.Variables.moveSmoothing, 0f, 0.99f, "Camera movement smoothing");
-			this.DrawSliderControl("Rot Smoothing", ref Plugin.Variables.rotSmoothing, 0f, 0.99f, "Camera rotation smoothing");
-			this.DrawSliderControl("Distance", ref Plugin.Variables.headDist, 0f, 0.99f, "Camera distance from target");
-			this.DrawSliderControl("FOV", ref Plugin.Variables.fov, 10f, 120f, "Camera field of view");
-			this.DrawSliderControl("Rig Lerp", ref Plugin.Variables.lerping, 0.1f, 5f, "Rig lerp value");
-			this.DrawSliderControl("Y Offset", ref Plugin.Variables.YOffset, -2f, 2f, "Camera Y offset");
-			GUILayout.Label("Camera Clear Flags", this.MinimalLabelStyle(false), Array.Empty<GUILayoutOption>());
-			string[] array = new string[]
-			{
-				"Solid Color",
-				"Skybox",
-				"Depth Only"
-			};
-			this.camClearFlags = this.DrawSelectionGridWithTooltip(this.camClearFlags, array, array.Length, "Camera clear flags");
-			this.camCullingEverything = this.DrawToggleWithTooltip(this.camCullingEverything, "Culling Mask: Everything (off = Default only)", "Camera culling mask", Array.Empty<GUILayoutOption>());
+			this.DrawSliderControl("Near Clip", ref Plugin.Variables.nearClip, 0.01f, 0.99f);
+			this.DrawSliderControl("Move Smoothing", ref Plugin.Variables.moveSmoothing, 0f, 0.99f);
+			this.DrawSliderControl("Rot Smoothing", ref Plugin.Variables.rotSmoothing, 0f, 0.99f);
+			this.DrawSliderControl("Distance", ref Plugin.Variables.headDist, 0f, 0.99f);
+			this.DrawSliderControl("FOV", ref Plugin.Variables.fov, 10f, 120f);
+			this.DrawSliderControl("Rig Lerp", ref Plugin.Variables.lerping, 0.1f, 5f);
+			this.DrawSliderControl("Y Offset", ref Plugin.Variables.YOffset, -2f, 2f);
 			GUILayout.Label("Follow:", this.MinimalLabelStyle(false), Array.Empty<GUILayoutOption>());
 			GUILayout.BeginHorizontal(Array.Empty<GUILayoutOption>());
-			bool flag2 = this.DrawToggleWithTooltip(Plugin.Variables.followMode == Plugin.Variables.CameraFollowMode.Body, "Body", "Follow body", Array.Empty<GUILayoutOption>());
+			bool flag2 = GUILayout.Toggle(Plugin.Variables.followMode == Plugin.Variables.CameraFollowMode.Body, "Body", this.MinimalToggleStyle(), Array.Empty<GUILayoutOption>());
 			if (flag2)
 			{
 				Plugin.Variables.followMode = Plugin.Variables.CameraFollowMode.Body;
 			}
-			bool flag3 = this.DrawToggleWithTooltip(Plugin.Variables.followMode == Plugin.Variables.CameraFollowMode.Head, "Head", "Follow head", Array.Empty<GUILayoutOption>());
+			bool flag3 = GUILayout.Toggle(Plugin.Variables.followMode == Plugin.Variables.CameraFollowMode.Head, "Head", this.MinimalToggleStyle(), Array.Empty<GUILayoutOption>());
 			if (flag3)
 			{
 				Plugin.Variables.followMode = Plugin.Variables.CameraFollowMode.Head;
 			}
-			bool flag4 = this.DrawToggleWithTooltip(Plugin.Variables.followMode == Plugin.Variables.CameraFollowMode.Front, "Front", "Follow front", Array.Empty<GUILayoutOption>());
-			if (flag4)
-			{
-				Plugin.Variables.followMode = Plugin.Variables.CameraFollowMode.Front;
-			}
 			GUILayout.EndHorizontal();
-			Plugin.Variables.smoothFollow = this.DrawToggleWithTooltip(Plugin.Variables.smoothFollow, "Smooth Follow", "Enable smooth camera follow", Array.Empty<GUILayoutOption>());
-			bool flag5 = this.DrawButtonWithTooltip("Init Camera", "Initialize the private camera", Array.Empty<GUILayoutOption>());
-			if (flag5)
+			Plugin.Variables.smoothFollow = GUILayout.Toggle(Plugin.Variables.smoothFollow, "Smooth Follow", this.MinimalToggleStyle(), Array.Empty<GUILayoutOption>());
+			bool flag4 = GUILayout.Button("Init Camera", this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
+			if (flag4)
 			{
 				this.Init();
 			}
-			bool flag6 = this.DrawButtonWithTooltip("Reset", "Reset all camera settings to default", Array.Empty<GUILayoutOption>());
-			if (flag6)
+			bool flag5 = GUILayout.Button("Reset", this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
+			if (flag5)
 			{
 				Plugin.Variables.fov = 90f;
 				Plugin.Variables.nearClip = 0.01f;
@@ -728,15 +409,12 @@ namespace Defaced
 				Plugin.Variables.bodyOnlyTracking = false;
 				Plugin.Variables.followMode = Plugin.Variables.CameraFollowMode.Body;
 				Plugin.Variables.smoothFollow = true;
-				this.camClearFlags = 0;
-				this.camCullingEverything = true;
-				this.ShowNotification("Camera settings reset.", 2f);
 			}
 			GUILayout.EndScrollView();
 			GUILayout.EndArea();
 		}
 
-		// Token: 0x06000018 RID: 24 RVA: 0x00003A30 File Offset: 0x00001C30
+		// Token: 0x06000010 RID: 16 RVA: 0x00002E7C File Offset: 0x0000107C
 		private void DrawMapWindow()
 		{
 			float num = 320f;
@@ -749,7 +427,7 @@ namespace Defaced
 			GUILayout.BeginHorizontal(Array.Empty<GUILayoutOption>());
 			GUILayout.Label("Map Loader", this.MinimalHeaderStyle(), Array.Empty<GUILayoutOption>());
 			GUILayout.FlexibleSpace();
-			bool flag = this.DrawButtonWithTooltip("✕", "Close map window", new GUILayoutOption[]
+			bool flag = GUILayout.Button("✕", this.MinimalButtonStyle(), new GUILayoutOption[]
 			{
 				GUILayout.Width(32f),
 				GUILayout.Height(32f)
@@ -766,7 +444,7 @@ namespace Defaced
 			foreach (object obj in Enum.GetValues(typeof(GTZone)))
 			{
 				GTZone gtzone = (GTZone)obj;
-				bool flag2 = this.DrawButtonWithTooltip(string.Format("{0}", gtzone), string.Format("Load map zone: {0}", gtzone), Array.Empty<GUILayoutOption>());
+				bool flag2 = GUILayout.Button(string.Format("{0}", gtzone), this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
 				if (flag2)
 				{
 					ZoneManagement.SetActiveZone(gtzone);
@@ -776,7 +454,7 @@ namespace Defaced
 			GUILayout.EndArea();
 		}
 
-		// Token: 0x06000019 RID: 25 RVA: 0x00003BB4 File Offset: 0x00001DB4
+		// Token: 0x06000011 RID: 17 RVA: 0x00002FF4 File Offset: 0x000011F4
 		private void DrawNametagsWindow()
 		{
 			float num = 400f;
@@ -789,7 +467,7 @@ namespace Defaced
 			GUILayout.BeginHorizontal(Array.Empty<GUILayoutOption>());
 			GUILayout.Label("Nametags", this.MinimalHeaderStyle(), Array.Empty<GUILayoutOption>());
 			GUILayout.FlexibleSpace();
-			bool flag = this.DrawButtonWithTooltip("✕", "Close nametags window", new GUILayoutOption[]
+			bool flag = GUILayout.Button("✕", this.MinimalButtonStyle(), new GUILayoutOption[]
 			{
 				GUILayout.Width(32f),
 				GUILayout.Height(32f)
@@ -804,161 +482,44 @@ namespace Defaced
 				GUILayout.ExpandHeight(true)
 			});
 			GUILayout.BeginHorizontal(Array.Empty<GUILayoutOption>());
-			bool flag2 = this.DrawToggleWithTooltip(!this.showPlayerCard && Plugin.Variables.nametags, "Velocity", "Show velocity on nametags", Array.Empty<GUILayoutOption>());
+			bool flag2 = GUILayout.Toggle(Plugin.Variables.nametags, "Velocity", this.MinimalToggleStyle(), Array.Empty<GUILayoutOption>());
 			if (flag2)
 			{
 				Plugin.Variables.nametags = true;
-				this.showPlayerCard = false;
 			}
-			bool flag3 = this.DrawToggleWithTooltip(!this.showPlayerCard && !Plugin.Variables.nametags, "Color", "Show color on nametags", Array.Empty<GUILayoutOption>());
+			bool flag3 = GUILayout.Toggle(!Plugin.Variables.nametags, "Color", this.MinimalToggleStyle(), Array.Empty<GUILayoutOption>());
 			if (flag3)
 			{
 				Plugin.Variables.nametags = false;
-				this.showPlayerCard = false;
-			}
-			bool flag4 = this.DrawToggleWithTooltip(this.showPlayerCard, "Player Card", "Show player card for selected player", Array.Empty<GUILayoutOption>());
-			if (flag4)
-			{
-				this.showPlayerCard = true;
 			}
 			GUILayout.EndHorizontal();
-			bool flag5 = !this.showPlayerCard;
+			Plugin.Variables.showFPS = GUILayout.Toggle(Plugin.Variables.showFPS, "FPS", this.MinimalToggleStyle(), Array.Empty<GUILayoutOption>());
+			Plugin.Variables.showPlatformIcon = GUILayout.Toggle(Plugin.Variables.showPlatformIcon, "Platform", this.MinimalToggleStyle(), Array.Empty<GUILayoutOption>());
+			GUILayout.Label("Font:", this.MinimalLabelStyle(false), Array.Empty<GUILayoutOption>());
+			GUILayout.BeginHorizontal(Array.Empty<GUILayoutOption>());
+			bool flag4 = GUILayout.Toggle(Plugin.Variables.Default == Plugin.Variables.Arial, "Default", this.MinimalToggleStyle(), Array.Empty<GUILayoutOption>());
+			if (flag4)
+			{
+				Plugin.Variables.Default = Plugin.Variables.Arial;
+			}
+			bool flag5 = GUILayout.Toggle(Plugin.Variables.Default == Plugin.Variables.Designer, "Designer", this.MinimalToggleStyle(), Array.Empty<GUILayoutOption>());
 			if (flag5)
 			{
-				Plugin.Variables.showFPS = this.DrawToggleWithTooltip(Plugin.Variables.showFPS, "FPS", "Show FPS on nametags", Array.Empty<GUILayoutOption>());
-				Plugin.Variables.showPlatformIcon = this.DrawToggleWithTooltip(Plugin.Variables.showPlatformIcon, "Platform", "Show platform icon on nametags", Array.Empty<GUILayoutOption>());
-				GUILayout.Label("Font:", this.MinimalLabelStyle(false), Array.Empty<GUILayoutOption>());
-				GUILayout.BeginHorizontal(Array.Empty<GUILayoutOption>());
-				bool flag6 = this.DrawToggleWithTooltip(Plugin.Variables.Default == Plugin.Variables.Arial, "Default", "Use default font", Array.Empty<GUILayoutOption>());
-				if (flag6)
-				{
-					Plugin.Variables.Default = Plugin.Variables.Arial;
-				}
-				bool flag7 = this.DrawToggleWithTooltip(Plugin.Variables.Default == Plugin.Variables.Designer, "Designer", "Use designer font", Array.Empty<GUILayoutOption>());
-				if (flag7)
-				{
-					Plugin.Variables.Default = Plugin.Variables.Designer;
-				}
-				GUILayout.EndHorizontal();
-				GUILayout.Label("Size:", this.MinimalLabelStyle(false), Array.Empty<GUILayoutOption>());
-				this.DrawSliderControl("Size", ref Plugin.Variables.size, 0.5f, 3f, "Nametag size");
-				this.DrawSliderControl("Nametag Y", ref Plugin.Variables.nametagYOffset, -2f, 2f, "Nametag Y offset");
-				this.DrawSliderControl("Nametag X", ref Plugin.Variables.nametagXOffset, -2f, 2f, "Nametag X offset");
-				this.DrawSliderControl("Platform Y", ref Plugin.Variables.platformYOffset, -2f, 2f, "Platform icon Y offset");
-				this.DrawSliderControl("Platform X", ref Plugin.Variables.platformXOffset, -2f, 2f, "Platform icon X offset");
-				Plugin.Variables.tags = this.DrawToggleWithTooltip(Plugin.Variables.tags, "Enable", "Enable nametags", Array.Empty<GUILayoutOption>());
-				GUILayout.Label("Font:", this.MinimalLabelStyle(false), Array.Empty<GUILayoutOption>());
-				GUILayout.BeginHorizontal(Array.Empty<GUILayoutOption>());
-				foreach (KeyValuePair<string, Font> keyValuePair in this.loadedFonts)
-				{
-					bool flag8 = this.DrawToggleWithTooltip(Plugin.Variables.Default == keyValuePair.Value, keyValuePair.Key, "Use font: " + keyValuePair.Key, Array.Empty<GUILayoutOption>());
-					if (flag8)
-					{
-						Plugin.Variables.Default = keyValuePair.Value;
-					}
-				}
-				GUILayout.EndHorizontal();
+				Plugin.Variables.Default = Plugin.Variables.Designer;
 			}
-			else
-			{
-				GUILayout.Label("Player Card will show info for the selected player in the bottom right.", this.MinimalLabelStyle(false), Array.Empty<GUILayoutOption>());
-			}
+			GUILayout.EndHorizontal();
+			GUILayout.Label("Size:", this.MinimalLabelStyle(false), Array.Empty<GUILayoutOption>());
+			this.DrawSliderControl("Size", ref Plugin.Variables.size, 0.5f, 3f);
+			this.DrawSliderControl("Nametag Y", ref Plugin.Variables.nametagYOffset, -2f, 2f);
+			this.DrawSliderControl("Nametag X", ref Plugin.Variables.nametagXOffset, -2f, 2f);
+			this.DrawSliderControl("Platform Y", ref Plugin.Variables.platformYOffset, -2f, 2f);
+			this.DrawSliderControl("Platform X", ref Plugin.Variables.platformXOffset, -2f, 2f);
+			Plugin.Variables.tags = GUILayout.Toggle(Plugin.Variables.tags, "Enable", this.MinimalToggleStyle(), Array.Empty<GUILayoutOption>());
 			GUILayout.EndScrollView();
 			GUILayout.EndArea();
 		}
 
-		// Token: 0x0600001A RID: 26 RVA: 0x00003FDC File Offset: 0x000021DC
-		private void DrawPlayerCard()
-		{
-			bool flag = Plugin.Variables.target == null;
-			if (!flag)
-			{
-				VRRig target = Plugin.Variables.target;
-				bool flag2 = target == null || target.isOfflineVRRig;
-				if (!flag2)
-				{
-					float num = 340f;
-					float num2 = 120f;
-					float num3 = 32f;
-					float num4 = (float)Screen.width - num - num3;
-					float num5 = (float)Screen.height - num2 - num3;
-					Rect rect;
-					rect..ctor(num4, num5, num, num2);
-					Color color = GUI.color;
-					GUI.color = new Color(0.08f, 0.08f, 0.08f, 0.92f);
-					GUI.DrawTexture(rect, Texture2D.whiteTexture, 0, true);
-					GUI.color = color;
-					GUILayout.BeginArea(rect);
-					GUILayout.BeginHorizontal(Array.Empty<GUILayoutOption>());
-					GUILayout.Space(12f);
-					GUILayout.BeginVertical(Array.Empty<GUILayoutOption>());
-					GUILayout.FlexibleSpace();
-					Color color2 = (target.mainSkin != null && target.mainSkin.material != null) ? target.mainSkin.material.color : new Color(1f, 0.1f, 0f);
-					Rect rect2 = GUILayoutUtility.GetRect(72f, 72f, new GUILayoutOption[]
-					{
-						GUILayout.Width(72f),
-						GUILayout.Height(72f)
-					});
-					this.DrawColorRect(rect2, color2);
-					GUILayout.FlexibleSpace();
-					GUILayout.EndVertical();
-					GUILayout.Space(18f);
-					GUILayout.BeginVertical(Array.Empty<GUILayoutOption>());
-					GUILayout.FlexibleSpace();
-					GUILayout.Label(target.playerNameVisible, this.PlayerCardNameStyle(), Array.Empty<GUILayoutOption>());
-					string platform = Plugin.GetPlatform(target);
-					GUILayout.Label("Platform: <b>" + platform + "</b>", this.PlayerCardLabelStyle(), Array.Empty<GUILayoutOption>());
-					double num6 = Math.Round((double)target.LatestVelocity().magnitude, 1);
-					GUILayout.Label(string.Format("Velocity: <b>{0} m/s</b>", num6), this.PlayerCardLabelStyle(), Array.Empty<GUILayoutOption>());
-					string fps = Plugin.GetFPS(target);
-					GUILayout.Label("FPS: <b>" + (string.IsNullOrEmpty(fps) ? "N/A" : fps.Replace("<color=green><b>", "").Replace("</b></color>", "")) + "</b>", this.PlayerCardLabelStyle(), Array.Empty<GUILayoutOption>());
-					GUILayout.FlexibleSpace();
-					GUILayout.EndVertical();
-					GUILayout.EndHorizontal();
-					GUILayout.EndArea();
-				}
-			}
-		}
-
-		// Token: 0x0600001B RID: 27 RVA: 0x00004260 File Offset: 0x00002460
-		private void DrawColorRect(Rect rect, Color color)
-		{
-			Color color2 = GUI.color;
-			GUI.color = color;
-			GUI.DrawTexture(rect, Texture2D.whiteTexture, 0, false);
-			GUI.color = color2;
-		}
-
-		// Token: 0x0600001C RID: 28 RVA: 0x00004290 File Offset: 0x00002490
-		private GUIStyle PlayerCardNameStyle()
-		{
-			GUIStyle guistyle = new GUIStyle(GUI.skin.label)
-			{
-				fontSize = this.guiFontSize + 12,
-				fontStyle = 1,
-				alignment = 3,
-				richText = true,
-				padding = new RectOffset(0, 0, 0, 0)
-			};
-			guistyle.normal.textColor = Color.white;
-			return guistyle;
-		}
-
-		// Token: 0x0600001D RID: 29 RVA: 0x000042FC File Offset: 0x000024FC
-		private GUIStyle PlayerCardLabelStyle()
-		{
-			GUIStyle guistyle = new GUIStyle(GUI.skin.label)
-			{
-				fontSize = this.guiFontSize + 4,
-				alignment = 3,
-				richText = true,
-				padding = new RectOffset(0, 0, 0, 0)
-			};
-			guistyle.normal.textColor = Color.white;
-			return guistyle;
-		}
-
-		// Token: 0x0600001E RID: 30 RVA: 0x00004360 File Offset: 0x00002560
+		// Token: 0x06000012 RID: 18 RVA: 0x000032D0 File Offset: 0x000014D0
 		private void DrawMiscWindow()
 		{
 			float num = 400f;
@@ -971,7 +532,7 @@ namespace Defaced
 			GUILayout.BeginHorizontal(Array.Empty<GUILayoutOption>());
 			GUILayout.Label("Misc", this.MinimalHeaderStyle(), Array.Empty<GUILayoutOption>());
 			GUILayout.FlexibleSpace();
-			bool flag = this.DrawButtonWithTooltip("✕", "Close misc window", new GUILayoutOption[]
+			bool flag = GUILayout.Button("✕", this.MinimalButtonStyle(), new GUILayoutOption[]
 			{
 				GUILayout.Width(32f),
 				GUILayout.Height(32f)
@@ -1016,28 +577,27 @@ namespace Defaced
 					GUILayout.Label("Not in a room", this.MinimalLabelStyle(false), Array.Empty<GUILayoutOption>());
 				}
 			}
-			Plugin.Variables.Code = this.DrawTextFieldWithTooltip(Plugin.Variables.Code ?? "", 15, this.MinimalTextFieldStyle(), "Room code", Array.Empty<GUILayoutOption>());
-			bool flag4 = this.DrawButtonWithTooltip("Join Room", "Join the specified room", Array.Empty<GUILayoutOption>());
+			Plugin.Variables.Code = GUILayout.TextField(Plugin.Variables.Code ?? "", 15, this.MinimalTextFieldStyle(), Array.Empty<GUILayoutOption>());
+			bool flag4 = GUILayout.Button("Join Room", this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
 			if (flag4)
 			{
 				PhotonNetworkController.Instance.AttemptToJoinSpecificRoom((Plugin.Variables.Code ?? "").ToUpper(), 0);
 			}
-			bool flag5 = this.DrawButtonWithTooltip(Plugin.Variables.fpsunlock ? "FPS Unlock: ON" : "FPS Unlock: OFF", "Toggle FPS unlock", Array.Empty<GUILayoutOption>());
+			bool flag5 = GUILayout.Button(Plugin.Variables.fpsunlock ? "FPS Unlock: ON" : "FPS Unlock: OFF", this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
 			if (flag5)
 			{
 				Plugin.Variables.fpsunlock = !Plugin.Variables.fpsunlock;
 				Application.targetFrameRate = (Plugin.Variables.fpsunlock ? 999 : 144);
-				this.ShowNotification(Plugin.Variables.fpsunlock ? "FPS Unlock enabled." : "FPS Unlock disabled.", 2f);
 			}
 			GUILayout.Space(10f);
 			GUILayout.Label("Custom Config:", this.MinimalHeaderStyle(), Array.Empty<GUILayoutOption>());
 			GUILayout.BeginHorizontal(Array.Empty<GUILayoutOption>());
-			bool flag6 = this.DrawButtonWithTooltip("Save Config", "Save current config", Array.Empty<GUILayoutOption>());
+			bool flag6 = GUILayout.Button("Save Config", this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
 			if (flag6)
 			{
 				this.SaveConfig();
 			}
-			bool flag7 = this.DrawButtonWithTooltip("Load Config", "Load config from file", Array.Empty<GUILayoutOption>());
+			bool flag7 = GUILayout.Button("Load Config", this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
 			if (flag7)
 			{
 				this.LoadConfig();
@@ -1047,7 +607,7 @@ namespace Defaced
 			GUILayout.EndArea();
 		}
 
-		// Token: 0x0600001F RID: 31 RVA: 0x000046EC File Offset: 0x000028EC
+		// Token: 0x06000013 RID: 19 RVA: 0x00003634 File Offset: 0x00001834
 		private void DrawTimeWindow()
 		{
 			float num = 320f;
@@ -1060,7 +620,7 @@ namespace Defaced
 			GUILayout.BeginHorizontal(Array.Empty<GUILayoutOption>());
 			GUILayout.Label("Time & Weather", this.MinimalHeaderStyle(), Array.Empty<GUILayoutOption>());
 			GUILayout.FlexibleSpace();
-			bool flag = this.DrawButtonWithTooltip("✕", "Close time & weather window", new GUILayoutOption[]
+			bool flag = GUILayout.Button("✕", this.MinimalButtonStyle(), new GUILayoutOption[]
 			{
 				GUILayout.Width(32f),
 				GUILayout.Height(32f)
@@ -1075,35 +635,35 @@ namespace Defaced
 				GUILayout.ExpandHeight(true)
 			});
 			GUILayout.BeginHorizontal(Array.Empty<GUILayoutOption>());
-			bool flag2 = this.DrawButtonWithTooltip("Morning", "Set time to morning", Array.Empty<GUILayoutOption>());
+			bool flag2 = GUILayout.Button("Morning", this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
 			if (flag2)
 			{
 				BetterDayNightManager.instance.SetTimeOfDay(1);
 			}
-			bool flag3 = this.DrawButtonWithTooltip("10AM", "Set time to 10AM", Array.Empty<GUILayoutOption>());
+			bool flag3 = GUILayout.Button("10AM", this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
 			if (flag3)
 			{
 				BetterDayNightManager.instance.SetTimeOfDay(3);
 			}
-			bool flag4 = this.DrawButtonWithTooltip("Noon", "Set time to noon", Array.Empty<GUILayoutOption>());
+			bool flag4 = GUILayout.Button("Noon", this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
 			if (flag4)
 			{
 				BetterDayNightManager.instance.SetTimeOfDay(4);
 			}
 			GUILayout.EndHorizontal();
 			GUILayout.BeginHorizontal(Array.Empty<GUILayoutOption>());
-			bool flag5 = this.DrawButtonWithTooltip("Evening", "Set time to evening", Array.Empty<GUILayoutOption>());
+			bool flag5 = GUILayout.Button("Evening", this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
 			if (flag5)
 			{
 				BetterDayNightManager.instance.SetTimeOfDay(6);
 			}
-			bool flag6 = this.DrawButtonWithTooltip("Night", "Set time to night", Array.Empty<GUILayoutOption>());
+			bool flag6 = GUILayout.Button("Night", this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
 			if (flag6)
 			{
 				BetterDayNightManager.instance.SetTimeOfDay(0);
 			}
 			GUILayout.EndHorizontal();
-			bool flag7 = this.DrawButtonWithTooltip(Plugin.Variables.raintoggle ? "Rain: ON" : "Rain: OFF", "Toggle rain", Array.Empty<GUILayoutOption>());
+			bool flag7 = GUILayout.Button(Plugin.Variables.raintoggle ? "Rain: ON" : "Rain: OFF", this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
 			if (flag7)
 			{
 				Plugin.Variables.raintoggle = !Plugin.Variables.raintoggle;
@@ -1111,13 +671,12 @@ namespace Defaced
 				{
 					BetterDayNightManager.instance.weatherCycle[i] = (Plugin.Variables.raintoggle ? 1 : 0);
 				}
-				this.ShowNotification(Plugin.Variables.raintoggle ? "Rain enabled." : "Rain disabled.", 2f);
 			}
 			GUILayout.EndScrollView();
 			GUILayout.EndArea();
 		}
 
-		// Token: 0x06000020 RID: 32 RVA: 0x00004960 File Offset: 0x00002B60
+		// Token: 0x06000014 RID: 20 RVA: 0x00003888 File Offset: 0x00001A88
 		private void DrawCustomizeWindow()
 		{
 			float num = 400f;
@@ -1130,7 +689,7 @@ namespace Defaced
 			GUILayout.BeginHorizontal(Array.Empty<GUILayoutOption>());
 			GUILayout.Label("Customize GUI", this.MinimalHeaderStyle(), Array.Empty<GUILayoutOption>());
 			GUILayout.FlexibleSpace();
-			bool flag = this.DrawButtonWithTooltip("✕", "Close customize window", new GUILayoutOption[]
+			bool flag = GUILayout.Button("✕", this.MinimalButtonStyle(), new GUILayoutOption[]
 			{
 				GUILayout.Width(32f),
 				GUILayout.Height(32f)
@@ -1149,15 +708,13 @@ namespace Defaced
 			GUILayout.Label("Background Color", this.MinimalLabelStyle(false), Array.Empty<GUILayoutOption>());
 			this.guiBgColor = this.EditorColorField(this.guiBgColor);
 			GUILayout.Label("Font Size", this.MinimalLabelStyle(false), Array.Empty<GUILayoutOption>());
-			this.guiFontSize = (int)this.DrawSliderWithTooltip((float)this.guiFontSize, 10f, 24f, "GUI font size");
+			this.guiFontSize = (int)GUILayout.HorizontalSlider((float)this.guiFontSize, 10f, 24f, this.SliderStyle(), this.SliderThumbStyle(), Array.Empty<GUILayoutOption>());
 			GUILayout.Label(this.guiFontSize.ToString(), this.MinimalLabelStyle(false), Array.Empty<GUILayoutOption>());
-			this.useRainbowHeader = this.DrawToggleWithTooltip(this.useRainbowHeader, "Rainbow Header", "Enable rainbow header effect", Array.Empty<GUILayoutOption>());
-			this.notificationsEnabled = this.DrawToggleWithTooltip(this.notificationsEnabled, "Enable Notifications", "Show notifications for actions", Array.Empty<GUILayoutOption>());
-			bool flag2 = this.DrawButtonWithTooltip("Apply", "Apply color and font size changes", Array.Empty<GUILayoutOption>());
+			this.useRainbowHeader = GUILayout.Toggle(this.useRainbowHeader, "Rainbow Header", this.MinimalToggleStyle(), Array.Empty<GUILayoutOption>());
+			bool flag2 = GUILayout.Button("Apply", this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
 			if (flag2)
 			{
 				this.CreateTextures();
-				this.ShowNotification("GUI style applied.", 2f);
 			}
 			GUILayout.Space(10f);
 			GUILayout.Label("Tip: Use the sliders and color pickers to make the GUI your own!", this.MinimalLabelStyle(false), Array.Empty<GUILayoutOption>());
@@ -1165,30 +722,9 @@ namespace Defaced
 			GUILayout.EndArea();
 		}
 
-		// Token: 0x06000021 RID: 33 RVA: 0x00004B94 File Offset: 0x00002D94
-		private void DrawMinimap()
-		{
-			bool flag = !this.showMinimap;
-			if (!flag)
-			{
-				bool flag2 = this.minimapRenderTexture == null;
-				if (!flag2)
-				{
-					float num = 256f;
-					float num2 = 24f;
-					float num3 = (float)Screen.width - num - num2;
-					float num4 = num2;
-					Rect rect;
-					rect..ctor(num3, num4, num, num);
-					GUI.DrawTexture(rect, this.minimapRenderTexture, 2, false);
-				}
-			}
-		}
-
-		// Token: 0x06000022 RID: 34 RVA: 0x00004BFC File Offset: 0x00002DFC
+		// Token: 0x06000015 RID: 21 RVA: 0x00003A94 File Offset: 0x00001C94
 		private void OnGUI()
 		{
-			this.DrawScoreboardBar();
 			bool flag = this.showMain;
 			if (flag)
 			{
@@ -1224,76 +760,9 @@ namespace Defaced
 			{
 				this.DrawCustomizeWindow();
 			}
-			this.DrawMinimap();
-			bool flag8 = this.showPlayerCard;
-			if (flag8)
-			{
-				this.DrawPlayerCard();
-			}
-			this.DrawTooltip();
-			this.DrawNotification();
 		}
 
-		// Token: 0x06000023 RID: 35 RVA: 0x00004CB8 File Offset: 0x00002EB8
-		private void DrawTooltip()
-		{
-			bool flag = !string.IsNullOrEmpty(this.currentTooltip);
-			if (flag)
-			{
-				Vector2 mousePosition = Event.current.mousePosition;
-				GUIStyle guistyle = new GUIStyle(GUI.skin.box)
-				{
-					fontSize = this.guiFontSize,
-					alignment = 3,
-					normal = 
-					{
-						textColor = Color.white,
-						background = this.roundedTex
-					}
-				};
-				Vector2 vector = guistyle.CalcSize(new GUIContent(this.currentTooltip));
-				Rect rect;
-				rect..ctor(mousePosition.x + 16f, mousePosition.y + 16f, vector.x + 16f, vector.y + 8f);
-				GUI.Box(rect, this.currentTooltip, guistyle);
-			}
-		}
-
-		// Token: 0x06000024 RID: 36 RVA: 0x00004D88 File Offset: 0x00002F88
-		private void DrawNotification()
-		{
-			bool flag = this.notificationsEnabled && !string.IsNullOrEmpty(this.notificationText);
-			if (flag)
-			{
-				float num = 420f;
-				float num2 = 40f;
-				float num3 = ((float)Screen.width - num) / 2f;
-				float num4 = 32f;
-				GUIStyle guistyle = new GUIStyle(GUI.skin.box)
-				{
-					fontSize = this.guiFontSize + 2,
-					alignment = 4,
-					normal = 
-					{
-						textColor = Color.white,
-						background = this.roundedTex
-					}
-				};
-				GUI.Box(new Rect(num3, num4, num, num2), this.notificationText, guistyle);
-			}
-		}
-
-		// Token: 0x06000025 RID: 37 RVA: 0x00004E40 File Offset: 0x00003040
-		private void ShowNotification(string text, float duration = 2f)
-		{
-			bool flag = !this.notificationsEnabled;
-			if (!flag)
-			{
-				this.notificationText = text;
-				this.notificationTimer = duration;
-			}
-		}
-
-		// Token: 0x06000026 RID: 38 RVA: 0x00004E6C File Offset: 0x0000306C
+		// Token: 0x06000016 RID: 22 RVA: 0x00003B20 File Offset: 0x00001D20
 		private void UpdateRigLerping()
 		{
 			bool flag = Plugin.Variables.lerp2 != Plugin.Variables.lerping;
@@ -1312,10 +781,10 @@ namespace Defaced
 			}
 		}
 
-		// Token: 0x06000027 RID: 39 RVA: 0x00004F00 File Offset: 0x00003100
+		// Token: 0x06000017 RID: 23 RVA: 0x00003BB4 File Offset: 0x00001DB4
 		private void UpdateNametags()
 		{
-			bool flag = !Plugin.Variables.tags || this.showPlayerCard;
+			bool flag = !Plugin.Variables.tags;
 			if (flag)
 			{
 				Plugin.Variables.tagwindow = false;
@@ -1356,41 +825,13 @@ namespace Defaced
 							color.g,
 							color.b
 						});
-						bool showFPS = Plugin.Variables.showFPS;
-						if (showFPS)
-						{
-							string fps = Plugin.GetFPS(vrrig);
-							bool flag5 = !string.IsNullOrEmpty(fps);
-							if (flag5)
-							{
-								text = text + "\n<size=80%>" + fps + "</size>";
-							}
-						}
 						this.CreateOrUpdateNametag(vrrig, text);
 					}
 				}
 			}
 		}
 
-		// Token: 0x06000028 RID: 40 RVA: 0x000051A8 File Offset: 0x000033A8
-		private static string GetFPS(VRRig rig)
-		{
-			Traverse traverse = Traverse.Create(rig).Field("fps");
-			bool flag = traverse != null && traverse.GetValue() != null;
-			bool flag2 = flag;
-			string result;
-			if (flag2)
-			{
-				result = "<color=green><b>" + traverse.GetValue().ToString() + "</b></color>";
-			}
-			else
-			{
-				result = null;
-			}
-			return result;
-		}
-
-		// Token: 0x06000029 RID: 41 RVA: 0x00005208 File Offset: 0x00003408
+		// Token: 0x06000018 RID: 24 RVA: 0x00003E1C File Offset: 0x0000201C
 		private void CreateOrUpdateNametag(VRRig vrrig, string text)
 		{
 			GameObject gameObject;
@@ -1499,7 +940,7 @@ namespace Defaced
 			}
 		}
 
-		// Token: 0x0600002A RID: 42 RVA: 0x0000557C File Offset: 0x0000377C
+		// Token: 0x06000019 RID: 25 RVA: 0x00004190 File Offset: 0x00002390
 		private void SaveConfig()
 		{
 			try
@@ -1530,7 +971,6 @@ namespace Defaced
 				string contents = JsonUtility.ToJson(configData, true);
 				File.WriteAllText(this.configPath, contents, Encoding.UTF8);
 				base.Logger.LogInfo("Config saved.");
-				this.ShowNotification("Config saved.", 2f);
 			}
 			catch (Exception ex)
 			{
@@ -1538,11 +978,10 @@ namespace Defaced
 				string str = "Failed to save config: ";
 				Exception ex2 = ex;
 				logger.LogError(str + ((ex2 != null) ? ex2.ToString() : null));
-				this.ShowNotification("Failed to save config.", 2f);
 			}
 		}
 
-		// Token: 0x0600002B RID: 43 RVA: 0x0000571C File Offset: 0x0000391C
+		// Token: 0x0600001A RID: 26 RVA: 0x0000430C File Offset: 0x0000250C
 		private void LoadConfig()
 		{
 			try
@@ -1551,7 +990,6 @@ namespace Defaced
 				if (flag)
 				{
 					base.Logger.LogWarning("No config file found to load.");
-					this.ShowNotification("No config file found.", 2f);
 				}
 				else
 				{
@@ -1579,7 +1017,6 @@ namespace Defaced
 					Plugin.Variables.Default = ((configData.fontName == "Designer") ? Plugin.Variables.Designer : Plugin.Variables.Arial);
 					Application.targetFrameRate = (Plugin.Variables.fpsunlock ? 999 : 144);
 					base.Logger.LogInfo("Config loaded.");
-					this.ShowNotification("Config loaded.", 2f);
 				}
 			}
 			catch (Exception ex)
@@ -1588,36 +1025,10 @@ namespace Defaced
 				string str = "Failed to load config: ";
 				Exception ex2 = ex;
 				logger.LogError(str + ((ex2 != null) ? ex2.ToString() : null));
-				this.ShowNotification("Failed to load config.", 2f);
 			}
 		}
 
-		// Token: 0x0600002C RID: 44 RVA: 0x00005904 File Offset: 0x00003B04
-		public void UnlockCosmetics()
-		{
-			MethodInfo method = typeof(CosmeticsController).GetMethod("UnlockItem", BindingFlags.Instance | BindingFlags.NonPublic);
-			foreach (CosmeticsController.CosmeticItem cosmeticItem in CosmeticsController.instance.allCosmetics)
-			{
-				bool flag = !CosmeticsController.instance.concatStringCosmeticsAllowed.Contains(cosmeticItem.itemName);
-				bool flag2 = flag;
-				if (flag2)
-				{
-					try
-					{
-						method.Invoke(CosmeticsController.instance, new object[]
-						{
-							cosmeticItem.itemName
-						});
-					}
-					catch
-					{
-					}
-				}
-			}
-			CosmeticsController.instance.OnCosmeticsUpdated();
-		}
-
-		// Token: 0x0600002D RID: 45 RVA: 0x000059DC File Offset: 0x00003BDC
+		// Token: 0x0600001B RID: 27 RVA: 0x000044C4 File Offset: 0x000026C4
 		private Texture2D MakeRoundedTex(int width, int height, Color col, int radius)
 		{
 			Texture2D texture2D = new Texture2D(width, height, 5, false);
@@ -1635,7 +1046,7 @@ namespace Defaced
 			return texture2D;
 		}
 
-		// Token: 0x0600002E RID: 46 RVA: 0x00005B24 File Offset: 0x00003D24
+		// Token: 0x0600001C RID: 28 RVA: 0x0000460C File Offset: 0x0000280C
 		private GUIStyle MinimalHeaderStyle()
 		{
 			GUIStyle guistyle = new GUIStyle(GUI.skin.label)
@@ -1648,7 +1059,7 @@ namespace Defaced
 			return guistyle;
 		}
 
-		// Token: 0x0600002F RID: 47 RVA: 0x00005B78 File Offset: 0x00003D78
+		// Token: 0x0600001D RID: 29 RVA: 0x00004660 File Offset: 0x00002860
 		private GUIStyle MinimalLabelStyle(bool isValue = false)
 		{
 			GUIStyle guistyle = new GUIStyle(GUI.skin.label)
@@ -1661,7 +1072,7 @@ namespace Defaced
 			return guistyle;
 		}
 
-		// Token: 0x06000030 RID: 48 RVA: 0x00005BDC File Offset: 0x00003DDC
+		// Token: 0x0600001E RID: 30 RVA: 0x000046C4 File Offset: 0x000028C4
 		private GUIStyle MinimalButtonStyle()
 		{
 			GUIStyle guistyle = new GUIStyle(GUI.skin.button)
@@ -1681,7 +1092,7 @@ namespace Defaced
 			return guistyle;
 		}
 
-		// Token: 0x06000031 RID: 49 RVA: 0x00005CC8 File Offset: 0x00003EC8
+		// Token: 0x0600001F RID: 31 RVA: 0x000047B0 File Offset: 0x000029B0
 		private GUIStyle MinimalToggleStyle()
 		{
 			GUIStyle guistyle = new GUIStyle(GUI.skin.toggle)
@@ -1696,7 +1107,7 @@ namespace Defaced
 			return guistyle;
 		}
 
-		// Token: 0x06000032 RID: 50 RVA: 0x00005D38 File Offset: 0x00003F38
+		// Token: 0x06000020 RID: 32 RVA: 0x00004820 File Offset: 0x00002A20
 		private GUIStyle MinimalBoxStyle()
 		{
 			GUIStyle guistyle = new GUIStyle(GUI.skin.box)
@@ -1709,7 +1120,7 @@ namespace Defaced
 			return guistyle;
 		}
 
-		// Token: 0x06000033 RID: 51 RVA: 0x00005DA8 File Offset: 0x00003FA8
+		// Token: 0x06000021 RID: 33 RVA: 0x00004890 File Offset: 0x00002A90
 		private GUIStyle MinimalTextFieldStyle()
 		{
 			GUIStyle guistyle = new GUIStyle(GUI.skin.textField)
@@ -1722,7 +1133,7 @@ namespace Defaced
 			return guistyle;
 		}
 
-		// Token: 0x06000034 RID: 52 RVA: 0x00005E00 File Offset: 0x00004000
+		// Token: 0x06000022 RID: 34 RVA: 0x000048E8 File Offset: 0x00002AE8
 		private GUIStyle SliderStyle()
 		{
 			GUIStyle guistyle = new GUIStyle(GUI.skin.horizontalSlider)
@@ -1734,7 +1145,7 @@ namespace Defaced
 			return guistyle;
 		}
 
-		// Token: 0x06000035 RID: 53 RVA: 0x00005E54 File Offset: 0x00004054
+		// Token: 0x06000023 RID: 35 RVA: 0x0000493C File Offset: 0x00002B3C
 		private GUIStyle SliderThumbStyle()
 		{
 			GUIStyle guistyle = new GUIStyle(GUI.skin.horizontalSliderThumb)
@@ -1754,7 +1165,7 @@ namespace Defaced
 			return guistyle;
 		}
 
-		// Token: 0x06000036 RID: 54 RVA: 0x00005F30 File Offset: 0x00004130
+		// Token: 0x06000024 RID: 36 RVA: 0x00004A18 File Offset: 0x00002C18
 		private Texture2D MakeTex(int width, int height, Color col)
 		{
 			Color[] array = new Color[width * height];
@@ -1768,15 +1179,15 @@ namespace Defaced
 			return texture2D;
 		}
 
-		// Token: 0x06000037 RID: 55 RVA: 0x00005F80 File Offset: 0x00004180
-		private void DrawSliderControl(string label, ref float value, float min, float max, string tooltip = null)
+		// Token: 0x06000025 RID: 37 RVA: 0x00004A68 File Offset: 0x00002C68
+		private void DrawSliderControl(string label, ref float value, float min, float max)
 		{
 			GUILayout.BeginHorizontal(Array.Empty<GUILayoutOption>());
 			GUILayout.Label(label, this.MinimalLabelStyle(false), new GUILayoutOption[]
 			{
 				GUILayout.Width(90f)
 			});
-			value = this.DrawSliderWithTooltip(value, min, max, tooltip);
+			value = GUILayout.HorizontalSlider(value, min, max, this.SliderStyle(), this.SliderThumbStyle(), Array.Empty<GUILayoutOption>());
 			GUILayout.Label(value.ToString("F2"), this.MinimalLabelStyle(true), new GUILayoutOption[]
 			{
 				GUILayout.Width(40f)
@@ -1784,112 +1195,7 @@ namespace Defaced
 			GUILayout.EndHorizontal();
 		}
 
-		// Token: 0x06000038 RID: 56 RVA: 0x00005FFC File Offset: 0x000041FC
-		private float DrawSliderWithTooltip(float value, float min, float max, string tooltip = null)
-		{
-			Rect lastRect = GUILayoutUtility.GetLastRect();
-			float result = GUILayout.HorizontalSlider(value, min, max, this.SliderStyle(), this.SliderThumbStyle(), Array.Empty<GUILayoutOption>());
-			bool flag = GUILayoutUtility.GetLastRect().Contains(Event.current.mousePosition);
-			if (flag)
-			{
-				this.currentTooltip = tooltip;
-			}
-			else
-			{
-				bool flag2 = string.Equals(this.currentTooltip, tooltip);
-				if (flag2)
-				{
-					this.currentTooltip = "";
-				}
-			}
-			return result;
-		}
-
-		// Token: 0x06000039 RID: 57 RVA: 0x00006074 File Offset: 0x00004274
-		private bool DrawButtonWithTooltip(string text, string tooltip, params GUILayoutOption[] options)
-		{
-			Rect lastRect = GUILayoutUtility.GetLastRect();
-			bool result = GUILayout.Button(text, this.MinimalButtonStyle(), options);
-			bool flag = GUILayoutUtility.GetLastRect().Contains(Event.current.mousePosition);
-			if (flag)
-			{
-				this.currentTooltip = tooltip;
-			}
-			else
-			{
-				bool flag2 = string.Equals(this.currentTooltip, tooltip);
-				if (flag2)
-				{
-					this.currentTooltip = "";
-				}
-			}
-			return result;
-		}
-
-		// Token: 0x0600003A RID: 58 RVA: 0x000060DC File Offset: 0x000042DC
-		private bool DrawToggleWithTooltip(bool value, string text, string tooltip, params GUILayoutOption[] options)
-		{
-			Rect lastRect = GUILayoutUtility.GetLastRect();
-			bool result = GUILayout.Toggle(value, text, this.MinimalToggleStyle(), options);
-			bool flag = GUILayoutUtility.GetLastRect().Contains(Event.current.mousePosition);
-			if (flag)
-			{
-				this.currentTooltip = tooltip;
-			}
-			else
-			{
-				bool flag2 = string.Equals(this.currentTooltip, tooltip);
-				if (flag2)
-				{
-					this.currentTooltip = "";
-				}
-			}
-			return result;
-		}
-
-		// Token: 0x0600003B RID: 59 RVA: 0x00006148 File Offset: 0x00004348
-		private int DrawSelectionGridWithTooltip(int selected, string[] texts, int xCount, string tooltip)
-		{
-			Rect lastRect = GUILayoutUtility.GetLastRect();
-			int result = GUILayout.SelectionGrid(selected, texts, xCount, this.MinimalButtonStyle(), Array.Empty<GUILayoutOption>());
-			bool flag = GUILayoutUtility.GetLastRect().Contains(Event.current.mousePosition);
-			if (flag)
-			{
-				this.currentTooltip = tooltip;
-			}
-			else
-			{
-				bool flag2 = string.Equals(this.currentTooltip, tooltip);
-				if (flag2)
-				{
-					this.currentTooltip = "";
-				}
-			}
-			return result;
-		}
-
-		// Token: 0x0600003C RID: 60 RVA: 0x000061B8 File Offset: 0x000043B8
-		private string DrawTextFieldWithTooltip(string value, int maxLength, GUIStyle style, string tooltip, params GUILayoutOption[] options)
-		{
-			Rect lastRect = GUILayoutUtility.GetLastRect();
-			string result = GUILayout.TextField(value, maxLength, style, options);
-			bool flag = GUILayoutUtility.GetLastRect().Contains(Event.current.mousePosition);
-			if (flag)
-			{
-				this.currentTooltip = tooltip;
-			}
-			else
-			{
-				bool flag2 = string.Equals(this.currentTooltip, tooltip);
-				if (flag2)
-				{
-					this.currentTooltip = "";
-				}
-			}
-			return result;
-		}
-
-		// Token: 0x0600003D RID: 61 RVA: 0x00006220 File Offset: 0x00004420
+		// Token: 0x06000026 RID: 38 RVA: 0x00004AF0 File Offset: 0x00002CF0
 		private Color EditorColorField(Color color)
 		{
 			GUILayout.BeginHorizontal(Array.Empty<GUILayoutOption>());
@@ -1921,7 +1227,7 @@ namespace Defaced
 			return color;
 		}
 
-		// Token: 0x0600003E RID: 62 RVA: 0x0000632C File Offset: 0x0000452C
+		// Token: 0x06000027 RID: 39 RVA: 0x00004BFC File Offset: 0x00002DFC
 		private void HandlePlayerSwitchKeys()
 		{
 			bool flag = Plugin.Variables.rigs == null || Plugin.Variables.rigs.Length == 0;
@@ -1980,7 +1286,7 @@ namespace Defaced
 			}
 		}
 
-		// Token: 0x0600003F RID: 63 RVA: 0x00006474 File Offset: 0x00004674
+		// Token: 0x06000028 RID: 40 RVA: 0x00004D44 File Offset: 0x00002F44
 		private void SetTargetByIndex(int idx)
 		{
 			bool flag = Plugin.Variables.rigs != null && idx >= 0 && idx < Plugin.Variables.rigs.Length;
@@ -1988,7 +1294,6 @@ namespace Defaced
 			{
 				Plugin.Variables.target = Plugin.Variables.rigs[idx];
 				base.Logger.LogInfo(string.Format("Switched to player {0}: {1}", idx + 1, Plugin.Variables.target.playerNameVisible));
-				this.ShowNotification(string.Format("Switched to player {0}: {1}", idx + 1, Plugin.Variables.target.playerNameVisible), 2f);
 			}
 		}
 
@@ -2014,245 +1319,185 @@ namespace Defaced
 		private bool showCustomize;
 
 		// Token: 0x04000008 RID: 8
-		private bool showScoreboard = true;
-
-		// Token: 0x04000009 RID: 9
-		private bool showMinimap = true;
-
-		// Token: 0x0400000A RID: 10
 		private Vector2 nametagScroll;
 
-		// Token: 0x0400000B RID: 11
+		// Token: 0x04000009 RID: 9
 		private Vector2 miscScroll;
 
-		// Token: 0x0400000C RID: 12
+		// Token: 0x0400000A RID: 10
 		private Vector2 cameraScroll;
 
-		// Token: 0x0400000D RID: 13
+		// Token: 0x0400000B RID: 11
 		private Vector2 mapScroll;
 
-		// Token: 0x0400000E RID: 14
+		// Token: 0x0400000C RID: 12
 		private Vector2 timeScroll;
 
-		// Token: 0x0400000F RID: 15
+		// Token: 0x0400000D RID: 13
 		private Vector2 customizeScroll;
 
-		// Token: 0x04000010 RID: 16
+		// Token: 0x0400000E RID: 14
 		private InputAction toggleAction;
 
-		// Token: 0x04000011 RID: 17
+		// Token: 0x0400000F RID: 15
 		private Texture2D questLogo;
 
-		// Token: 0x04000012 RID: 18
+		// Token: 0x04000010 RID: 16
 		private Texture2D steamLogo;
 
-		// Token: 0x04000013 RID: 19
+		// Token: 0x04000011 RID: 17
 		private Texture2D borderTex;
 
-		// Token: 0x04000014 RID: 20
+		// Token: 0x04000012 RID: 18
 		private Texture2D sliderBG;
 
-		// Token: 0x04000015 RID: 21
+		// Token: 0x04000013 RID: 19
 		private Texture2D sliderFG;
 
-		// Token: 0x04000016 RID: 22
+		// Token: 0x04000014 RID: 20
 		private Texture2D gradientTex;
 
-		// Token: 0x04000017 RID: 23
+		// Token: 0x04000015 RID: 21
 		private Texture2D headerTex;
 
-		// Token: 0x04000018 RID: 24
+		// Token: 0x04000016 RID: 22
 		private Texture2D roundedTex;
 
-		// Token: 0x04000019 RID: 25
+		// Token: 0x04000017 RID: 23
 		private Sprite questSprite;
 
-		// Token: 0x0400001A RID: 26
+		// Token: 0x04000018 RID: 24
 		private Sprite steamSprite;
 
-		// Token: 0x0400001B RID: 27
-		private Texture2D minimapBorderTex;
-
-		// Token: 0x0400001C RID: 28
+		// Token: 0x04000019 RID: 25
 		private readonly Dictionary<VRRig, GameObject> nametagObjects = new Dictionary<VRRig, GameObject>();
 
-		// Token: 0x0400001D RID: 29
+		// Token: 0x0400001A RID: 26
 		private readonly Dictionary<VRRig, GameObject> platformTagObjects = new Dictionary<VRRig, GameObject>();
 
-		// Token: 0x0400001E RID: 30
+		// Token: 0x0400001B RID: 27
 		private VRRig pinnedPlayer;
 
-		// Token: 0x0400001F RID: 31
-		private Camera minimapCamera;
-
-		// Token: 0x04000020 RID: 32
-		private RenderTexture minimapRenderTexture;
-
-		// Token: 0x04000021 RID: 33
+		// Token: 0x0400001C RID: 28
 		private const float NAMETAG_BASE_SIZE = 0.15f;
 
-		// Token: 0x04000022 RID: 34
+		// Token: 0x0400001D RID: 29
 		private const float NAMETAG_SCALE_FACTOR = 0.02f;
 
-		// Token: 0x04000023 RID: 35
+		// Token: 0x0400001E RID: 30
 		private readonly string configPath = Path.Combine(Paths.PluginPath, "defaced_config.json");
 
-		// Token: 0x04000024 RID: 36
+		// Token: 0x0400001F RID: 31
 		private AudioListener camListener;
 
-		// Token: 0x04000025 RID: 37
-		private float scoreboardTimer = -10f;
-
-		// Token: 0x04000026 RID: 38
-		private bool timerRunning = false;
-
-		// Token: 0x04000027 RID: 39
-		private double timerLastRealtime = 0.0;
-
-		// Token: 0x04000028 RID: 40
+		// Token: 0x04000020 RID: 32
 		private Color guiAccentColor = new Color(1f, 0.07f, 0.58f, 1f);
 
-		// Token: 0x04000029 RID: 41
+		// Token: 0x04000021 RID: 33
 		private Color guiBgColor = new Color(0.05f, 0.05f, 0.05f, 0.98f);
 
-		// Token: 0x0400002A RID: 42
+		// Token: 0x04000022 RID: 34
 		private int guiFontSize = 14;
 
-		// Token: 0x0400002B RID: 43
+		// Token: 0x04000023 RID: 35
 		private bool useRainbowHeader = true;
 
-		// Token: 0x0400002C RID: 44
-		private Dictionary<string, Font> loadedFonts = new Dictionary<string, Font>();
-
-		// Token: 0x0400002D RID: 45
-		private string team1Name = "Team 1";
-
-		// Token: 0x0400002E RID: 46
-		private string team2Name = "Team 2";
-
-		// Token: 0x0400002F RID: 47
-		private string team1Score = "0";
-
-		// Token: 0x04000030 RID: 48
-		private string team2Score = "0";
-
-		// Token: 0x04000031 RID: 49
-		private bool showPlayerCard = false;
-
-		// Token: 0x04000032 RID: 50
-		private int camClearFlags = 0;
-
-		// Token: 0x04000033 RID: 51
-		private bool camCullingEverything = true;
-
-		// Token: 0x04000034 RID: 52
-		private string currentTooltip = "";
-
-		// Token: 0x04000035 RID: 53
-		private bool notificationsEnabled = true;
-
-		// Token: 0x04000036 RID: 54
-		private string notificationText = "";
-
-		// Token: 0x04000037 RID: 55
-		private float notificationTimer = 0f;
-
-		// Token: 0x04000038 RID: 56
+		// Token: 0x04000024 RID: 36
 		public static bool loaded = false;
 
-		// Token: 0x04000039 RID: 57
+		// Token: 0x04000025 RID: 37
 		public static bool starter = true;
 
-		// Token: 0x0400003A RID: 58
+		// Token: 0x04000026 RID: 38
 		public static bool Online;
 
-		// Token: 0x0400003B RID: 59
+		// Token: 0x04000027 RID: 39
 		public static string Code = "";
 
-		// Token: 0x0400003C RID: 60
+		// Token: 0x04000028 RID: 40
 		public static bool fpsunlock = false;
 
-		// Token: 0x0400003D RID: 61
+		// Token: 0x04000029 RID: 41
 		public static float lerping = 1f;
 
-		// Token: 0x0400003E RID: 62
+		// Token: 0x0400002A RID: 42
 		public static float lerp2;
 
-		// Token: 0x0400003F RID: 63
+		// Token: 0x0400002B RID: 43
 		public static BetterDayNightManager GameTime = BetterDayNightManager.instance;
 
-		// Token: 0x04000040 RID: 64
+		// Token: 0x0400002C RID: 44
 		public static bool raintoggle;
 
 		// Token: 0x02000003 RID: 3
 		[Serializable]
 		public class ConfigData
 		{
-			// Token: 0x04000041 RID: 65
+			// Token: 0x0400002D RID: 45
 			public float nearClip;
 
-			// Token: 0x04000042 RID: 66
+			// Token: 0x0400002E RID: 46
 			public float moveSmoothing;
 
-			// Token: 0x04000043 RID: 67
+			// Token: 0x0400002F RID: 47
 			public float rotSmoothing;
 
-			// Token: 0x04000044 RID: 68
+			// Token: 0x04000030 RID: 48
 			public float headDist;
 
-			// Token: 0x04000045 RID: 69
+			// Token: 0x04000031 RID: 49
 			public float fov;
 
-			// Token: 0x04000046 RID: 70
+			// Token: 0x04000032 RID: 50
 			public float lerping;
 
-			// Token: 0x04000047 RID: 71
+			// Token: 0x04000033 RID: 51
 			public float YOffset;
 
-			// Token: 0x04000048 RID: 72
+			// Token: 0x04000034 RID: 52
 			public float size;
 
-			// Token: 0x04000049 RID: 73
+			// Token: 0x04000035 RID: 53
 			public float nametagYOffset;
 
-			// Token: 0x0400004A RID: 74
+			// Token: 0x04000036 RID: 54
 			public float nametagXOffset;
 
-			// Token: 0x0400004B RID: 75
+			// Token: 0x04000037 RID: 55
 			public float platformYOffset;
 
-			// Token: 0x0400004C RID: 76
+			// Token: 0x04000038 RID: 56
 			public float platformXOffset;
 
-			// Token: 0x0400004D RID: 77
+			// Token: 0x04000039 RID: 57
 			public bool showPlatformIcon;
 
-			// Token: 0x0400004E RID: 78
+			// Token: 0x0400003A RID: 58
 			public bool showFPS;
 
-			// Token: 0x0400004F RID: 79
+			// Token: 0x0400003B RID: 59
 			public bool nametags;
 
-			// Token: 0x04000050 RID: 80
+			// Token: 0x0400003C RID: 60
 			public bool tags;
 
-			// Token: 0x04000051 RID: 81
+			// Token: 0x0400003D RID: 61
 			public bool fpsunlock;
 
-			// Token: 0x04000052 RID: 82
+			// Token: 0x0400003E RID: 62
 			public bool raintoggle;
 
-			// Token: 0x04000053 RID: 83
+			// Token: 0x0400003F RID: 63
 			public int followMode;
 
-			// Token: 0x04000054 RID: 84
+			// Token: 0x04000040 RID: 64
 			public string fontName;
 		}
 
 		// Token: 0x02000004 RID: 4
 		internal static class Variables
 		{
-			// Token: 0x06000044 RID: 68 RVA: 0x00006680 File Offset: 0x00004880
+			// Token: 0x0600002D RID: 45 RVA: 0x00004E88 File Offset: 0x00003088
 			public static Font Create(string path)
 			{
 				Font result;
@@ -2268,129 +1513,127 @@ namespace Defaced
 			}
 
 			// Token: 0x17000001 RID: 1
-			// (get) Token: 0x06000045 RID: 69 RVA: 0x000066F4 File Offset: 0x000048F4
-			// (set) Token: 0x06000046 RID: 70 RVA: 0x000066FB File Offset: 0x000048FB
+			// (get) Token: 0x0600002E RID: 46 RVA: 0x00004EFC File Offset: 0x000030FC
+			// (set) Token: 0x0600002F RID: 47 RVA: 0x00004F03 File Offset: 0x00003103
 			public static string Code { get; internal set; }
 
 			// Token: 0x17000002 RID: 2
-			// (get) Token: 0x06000047 RID: 71 RVA: 0x00006703 File Offset: 0x00004903
-			// (set) Token: 0x06000048 RID: 72 RVA: 0x0000670A File Offset: 0x0000490A
+			// (get) Token: 0x06000030 RID: 48 RVA: 0x00004F0B File Offset: 0x0000310B
+			// (set) Token: 0x06000031 RID: 49 RVA: 0x00004F12 File Offset: 0x00003112
 			public static bool Online { get; internal set; }
 
-			// Token: 0x04000055 RID: 85
+			// Token: 0x04000041 RID: 65
 			public static Font Designer;
 
-			// Token: 0x04000056 RID: 86
+			// Token: 0x04000042 RID: 66
 			public static Font Default;
 
-			// Token: 0x04000057 RID: 87
+			// Token: 0x04000043 RID: 67
 			public static Font Arial = Font.CreateDynamicFontFromOSFont("Arial", 16);
 
-			// Token: 0x04000058 RID: 88
+			// Token: 0x04000044 RID: 68
 			public static Camera cam;
 
-			// Token: 0x04000059 RID: 89
+			// Token: 0x04000045 RID: 69
 			public static float nearClip = 0.01f;
 
-			// Token: 0x0400005A RID: 90
+			// Token: 0x04000046 RID: 70
 			public static float moveSmoothing;
 
-			// Token: 0x0400005B RID: 91
+			// Token: 0x04000047 RID: 71
 			public static float rotSmoothing;
 
-			// Token: 0x0400005C RID: 92
+			// Token: 0x04000048 RID: 72
 			public static float headDist;
 
-			// Token: 0x0400005D RID: 93
+			// Token: 0x04000049 RID: 73
 			public static float fov = 90f;
 
-			// Token: 0x0400005E RID: 94
+			// Token: 0x0400004A RID: 74
 			public static float YOffset;
 
-			// Token: 0x0400005F RID: 95
+			// Token: 0x0400004B RID: 75
 			public static float XOffset;
 
-			// Token: 0x04000060 RID: 96
+			// Token: 0x0400004C RID: 76
 			public static string looker = "None";
 
-			// Token: 0x04000061 RID: 97
+			// Token: 0x0400004D RID: 77
 			public static bool swapper = false;
 
-			// Token: 0x04000062 RID: 98
+			// Token: 0x0400004E RID: 78
 			public static bool bodyOnlyTracking = false;
 
-			// Token: 0x04000063 RID: 99
+			// Token: 0x0400004F RID: 79
 			public static VRRig[] rigs;
 
-			// Token: 0x04000064 RID: 100
+			// Token: 0x04000050 RID: 80
 			public static VRRig target;
 
-			// Token: 0x04000065 RID: 101
+			// Token: 0x04000051 RID: 81
 			public static bool tags;
 
-			// Token: 0x04000066 RID: 102
+			// Token: 0x04000052 RID: 82
 			public static bool tagwindow;
 
-			// Token: 0x04000067 RID: 103
+			// Token: 0x04000053 RID: 83
 			public static bool nametags = false;
 
-			// Token: 0x04000068 RID: 104
+			// Token: 0x04000054 RID: 84
 			public static bool showFPS;
 
-			// Token: 0x04000069 RID: 105
+			// Token: 0x04000055 RID: 85
 			public static bool showPlatformIcon = false;
 
-			// Token: 0x0400006A RID: 106
+			// Token: 0x04000056 RID: 86
 			public static bool raintoggle;
 
-			// Token: 0x0400006B RID: 107
+			// Token: 0x04000057 RID: 87
 			public static bool fpsunlock;
 
-			// Token: 0x0400006C RID: 108
+			// Token: 0x04000058 RID: 88
 			public static bool loaded;
 
-			// Token: 0x0400006D RID: 109
+			// Token: 0x04000059 RID: 89
 			public static bool starter;
 
-			// Token: 0x0400006E RID: 110
+			// Token: 0x0400005A RID: 90
 			public static float size = 1f;
 
-			// Token: 0x0400006F RID: 111
+			// Token: 0x0400005B RID: 91
 			public static float Xangle = 0.65f;
 
-			// Token: 0x04000070 RID: 112
+			// Token: 0x0400005C RID: 92
 			public static float lerping;
 
-			// Token: 0x04000071 RID: 113
+			// Token: 0x0400005D RID: 93
 			public static float lerp2;
 
-			// Token: 0x04000072 RID: 114
+			// Token: 0x0400005E RID: 94
 			public static float nametagYOffset = 0.65f;
 
-			// Token: 0x04000073 RID: 115
+			// Token: 0x0400005F RID: 95
 			public static float nametagXOffset = 0f;
 
-			// Token: 0x04000074 RID: 116
+			// Token: 0x04000060 RID: 96
 			public static float platformYOffset = 1f;
 
-			// Token: 0x04000075 RID: 117
+			// Token: 0x04000061 RID: 97
 			public static float platformXOffset = 0f;
 
-			// Token: 0x04000076 RID: 118
+			// Token: 0x04000062 RID: 98
 			public static bool smoothFollow = true;
 
-			// Token: 0x04000079 RID: 121
+			// Token: 0x04000065 RID: 101
 			public static Plugin.Variables.CameraFollowMode followMode = Plugin.Variables.CameraFollowMode.Body;
 
 			// Token: 0x02000005 RID: 5
 			public enum CameraFollowMode
 			{
-				// Token: 0x0400007B RID: 123
+				// Token: 0x04000067 RID: 103
 				Body,
-				// Token: 0x0400007C RID: 124
-				Head,
-				// Token: 0x0400007D RID: 125
-				Front
+				// Token: 0x04000068 RID: 104
+				Head
 			}
 		}
 	}
